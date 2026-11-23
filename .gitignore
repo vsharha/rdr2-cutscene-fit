@@ -5,3 +5,10 @@
 *.log
 compile_commands.json
 .cache/
+
+# Memory dumps and Ghidra projects
+/dumps/
+*.exe
+*.gpr
+*.rep/
+*.dmp
