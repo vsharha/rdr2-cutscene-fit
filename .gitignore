@@ -1,0 +1,7 @@
+/build/
+/out/
+*.asi
+*.dll
+*.log
+compile_commands.json
+.cache/
