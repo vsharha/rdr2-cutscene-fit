@@ -3,7 +3,8 @@
 // CutsceneFit: shows cutscenes at their intended 2.35:1 framing on screens wider than
 // 16:9, as large as the screen allows and never cropped, by narrowing the cutscene
 // camera's field of view and resizing the game's own letterbox bars to fill the rest.
-// Nothing changes while the screen is no wider than 16:9.
+// On screens no wider than 16:9 the zoom and the bar sizes are left alone; hiding the
+// bars works on every screen.
 //
 // Settings are read once at start from "CutsceneFit.ini" next to CutsceneFit.asi,
 // section [CutsceneFit]:
@@ -116,8 +117,8 @@ public:
                          m->aspect, m->source, size, state::zoom_scale(), state::top_bottom_fraction(),
                          state::side_fraction());
         } else {
-            logger::info("aspect {:.4f} ({}{}): not wider than 16:9, nothing is changed", m->aspect,
-                         m->source, size);
+            logger::info("aspect {:.4f} ({}{}): not wider than 16:9, zoom and bar sizes are left alone",
+                         m->aspect, m->source, size);
         }
     }
 
@@ -287,8 +288,7 @@ DWORD WINAPI run(LPVOID parameter) {
             }
             if (pressed(s.toggle_key, key_down)) {
                 hide = !hide;
-                logger::info("toggle key: bars {}{}", hide ? "hidden" : "shown",
-                             state::applicable() ? "" : " (takes effect on screens wider than 16:9)");
+                logger::info("toggle key: bars {}", hide ? "hidden" : "shown");
             }
 #ifdef CUTSCENEFIT_COMPARE
             if (pressed(s.compare_key, compare_key_down)) {
@@ -296,7 +296,7 @@ DWORD WINAPI run(LPVOID parameter) {
                 compare_key_down = false;
             }
 #endif
-            bars::set_hidden(hide && state::applicable());
+            bars::set_hidden(hide);
             zoom_log.tick(now);
             counter_log.tick(now);
             std::this_thread::sleep_for(kPollInterval);

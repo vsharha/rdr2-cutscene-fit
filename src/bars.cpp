@@ -66,7 +66,7 @@ void update_detour() {
 
     // The instruction patch makes the computed alpha zero from the moment the game
     // stores it; this store keeps it zero if anything else has written 255.
-    if (g_hidden.load(std::memory_order_relaxed) && state::applicable()) {
+    if (g_hidden.load(std::memory_order_relaxed)) {
         store<std::uint8_t>(g_anchor + letterbox::kAlpha, kHiddenAlpha);
     }
 
@@ -99,7 +99,7 @@ void draw_detour() {
 #ifdef CUTSCENEFIT_COMPARE
     g_drawn_frames.fetch_add(1, std::memory_order_relaxed);
 #endif
-    if (g_hidden.load(std::memory_order_relaxed) && state::applicable()) {
+    if (g_hidden.load(std::memory_order_relaxed)) {
         store<std::uint8_t>(g_anchor + letterbox::kDrawnAlpha, kHiddenAlpha);
     }
     if (state::applicable() && load<std::uint8_t>(g_anchor + letterbox::kDrawnEnable) != 0) {

@@ -17,8 +17,8 @@ constexpr double kFilmAspect = 2.35;
 void set_aspect(double aspect);
 double aspect();
 
-// False until an aspect is set, and while the screen is no wider than 16:9. The
-// plugin changes nothing in the game then.
+// False until an aspect is set, and while the screen is no wider than 16:9. The zoom
+// and the bar sizes are left alone then; hiding the bars does not depend on it.
 bool applicable();
 #ifdef CUTSCENEFIT_COMPARE
 void set_compare_mode(CompareMode mode);

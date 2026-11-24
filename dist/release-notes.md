@@ -26,4 +26,4 @@ Copy `CutsceneFit.asi` into the game folder, next to `RDR2.exe`. Copy
 `WINEDLLOVERRIDES="dinput8=n,b" %command%` to the game's launch options so Wine
 loads the ASI loader's `dinput8.dll`.
 
-The End key shows or hides the bars.
+The End key shows or hides the bars, on any screen.

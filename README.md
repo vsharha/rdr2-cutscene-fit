@@ -23,7 +23,8 @@ The same applies to the in-game cinematic camera, which uses the same bars.
 It works at any aspect ratio. The plugin computes the frame and the bars from
 the game window's measured aspect, so screens between the common sizes below
 get the same fit. At 16:9 and narrower the game already frames cutscenes
-correctly, and nothing changes.
+correctly, so the zoom and the bar sizes are unchanged, but the toggle key still
+hides the game's bars.
 
 | Screen | Frame fills | Bars                               |
 | ------ | ----------- | ---------------------------------- |
@@ -104,8 +105,8 @@ log=1
 | Key          | Meaning                                                                                                                                                                  |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `enabled`    | `1` installs the plugin's hooks, `0` loads it and does nothing.                                                                                                          |
-| `bars`       | `1` shows the bars when the game starts, `0` hides them.                                                                                                                 |
-| `toggle_key` | Key that shows or hides the bars: a name (`F1`–`F24`, `A`–`Z`, `0`–`9`, `End`, `Home`, `Insert`, `Delete`, `PageUp`, `PageDown`, arrow keys, …) or a virtual-key code such as `0x23`. |
+| `bars`       | `1` shows the bars when the game starts, `0` hides them, on any screen.                                                                                                           |
+| `toggle_key` | Key that shows or hides the bars on any screen: a name (`F1`–`F24`, `A`–`Z`, `0`–`9`, `End`, `Home`, `Insert`, `Delete`, `PageUp`, `PageDown`, arrow keys, …) or a virtual-key code such as `0x23`. |
 | `zoom_start` | `cut` narrows the field of view from the first camera cut after the letterbox appears. `letterbox` narrows it whenever the letterbox is enabled. The zoom eases out as the bars slide out. |
 | `aspect`     | Screen aspect ratio. `0` measures the game window's client area once a second.                                                                                           |
 | `log`        | `1` writes `CutsceneFit.log` next to the `.asi`, `0` writes nothing.                                                                                                      |
