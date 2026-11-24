@@ -40,25 +40,24 @@ Wait g_wait = nullptr;
 NativeInit g_native_init = nullptr;
 NativePush g_native_push = nullptr;
 NativeCall g_native_call = nullptr;
-std::atomic<float> g_time_scale{1.0f};
+std::atomic<bool> g_pause_requested{false};
 std::atomic<bool> g_registered{false};
 std::atomic<bool> g_cancel{false};
 std::filesystem::path g_handshake;
 std::filesystem::path g_done;
 HMODULE g_module = nullptr;
-constexpr std::uint64_t kSetTimeScale = 0x9682AF6050854856ULL;
+constexpr std::uint64_t kSetGamePaused = 0xFAEC088D28B1DE4AULL;
+constexpr auto kFrameWaitTimeout = std::chrono::seconds(2);
 
 void script_main() {
-    float last = -1.0f;
+    int last = -1;
     while (true) {
-        const float requested = g_time_scale.load(std::memory_order_relaxed);
+        const int requested = g_pause_requested.load(std::memory_order_relaxed) ? 1 : 0;
         if (requested != last) {
-            std::uint32_t bits = 0;
-            std::memcpy(&bits, &requested, sizeof(bits));
-            g_native_init(kSetTimeScale);
-            g_native_push(static_cast<std::uint64_t>(bits));
+            g_native_init(kSetGamePaused);
+            g_native_push(static_cast<std::uint64_t>(requested));
             g_native_call();
-            logger::info("Script Hook time scale set to {:.3f}", requested);
+            logger::info("Script Hook game pause set to {}", requested);
             last = requested;
         }
         g_wait(0);
@@ -68,7 +67,7 @@ void script_main() {
 bool setup_script() {
     g_sh = LoadLibraryW(L"ScriptHookRDR2.dll");
     if (g_sh == nullptr) {
-        logger::info("Script Hook unavailable; compare sequence will not freeze the game");
+        logger::info("Script Hook unavailable; compare sequence will not pause the game");
         return false;
     }
     const auto reg = resolve<Register>("?scriptRegister@@YAXPEAUHINSTANCE__@@P6AXXZ@Z");
@@ -79,7 +78,7 @@ bool setup_script() {
     g_native_call = resolve<NativeCall>("?nativeCall@@YAPEA_KXZ");
     if (reg == nullptr || g_unregister == nullptr || g_wait == nullptr || g_native_init == nullptr ||
         g_native_push == nullptr || g_native_call == nullptr) {
-        logger::info("Script Hook exports incomplete; compare sequence will not freeze the game");
+        logger::info("Script Hook exports incomplete; compare sequence will not pause the game");
         FreeLibrary(g_sh);
         g_sh = nullptr;
         return false;
@@ -118,18 +117,36 @@ bool cancel_pressed(int key, bool& key_down) {
     return edge;
 }
 
-bool wait_frames(std::uint32_t count, int key, bool& key_down) {
+struct FrameWait {
+    bool continue_sequence;
+    bool timed_out;
+    std::uint32_t drawn;
+};
+
+FrameWait wait_frames(std::uint32_t count, int key, bool& key_down) {
     const std::uint32_t start = bars::drawn_frames();
-    while (bars::drawn_frames() - start < count) {
+    const auto deadline = Clock::now() + kFrameWaitTimeout;
+    while (bars::drawn_frames() - start < count && Clock::now() < deadline) {
         if (g_cancel.load(std::memory_order_relaxed)) {
-            return false;
+            return {false, false, bars::drawn_frames() - start};
         }
         if (cancel_pressed(key, key_down)) {
-            return false;
+            return {false, false, bars::drawn_frames() - start};
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    return true;
+    const std::uint32_t drawn = bars::drawn_frames() - start;
+    return {true, drawn < count, drawn};
+}
+
+void log_frame_wait(const char* reason, const FrameWait& result) {
+    if (result.timed_out) {
+        logger::info("compare: {} wait timed out after {} s; frames stopped advancing ({} frame(s) drawn)",
+                     reason, kFrameWaitTimeout.count(), result.drawn);
+    } else {
+        logger::info("compare: {} wait drew {} frame(s){}", reason, result.drawn,
+                     result.continue_sequence ? "" : " before cancellation");
+    }
 }
 
 }  // namespace
@@ -159,11 +176,14 @@ void run(int key, int hold_ms, bool freeze) {
     bool key_down = true;
     unsigned sequence = 0;
     bool script_seen = false;
+    const bool pause_enabled = freeze && g_registered.load(std::memory_order_relaxed);
     DeleteFileW(g_done.c_str());
     g_cancel.store(false, std::memory_order_relaxed);
-    if (freeze && g_registered.load(std::memory_order_relaxed)) {
-        g_time_scale.store(0.0f, std::memory_order_relaxed);
-        if (!wait_frames(5, key, key_down)) {
+    if (pause_enabled) {
+        g_pause_requested.store(true, std::memory_order_relaxed);
+        const FrameWait paused = wait_frames(5, key, key_down);
+        log_frame_wait("initial pause", paused);
+        if (!paused.continue_sequence) {
             g_cancel.store(true, std::memory_order_relaxed);
         }
     }
@@ -173,17 +193,50 @@ void run(int key, int hold_ms, bool freeze) {
         }
         state::set_compare_mode(entry.mode);
         bars::set_hidden(entry.hidden);
-        if (!wait_frames(5, key, key_down)) {
-            break;
+        const std::uint32_t frame_start = bars::drawn_frames();
+        const std::uint32_t required_frames = pause_enabled ? 3 : 5;
+        if (pause_enabled) {
+            g_pause_requested.store(false, std::memory_order_relaxed);
         }
-        ++sequence;
-        if (!write_atomic(g_handshake, std::to_string(sequence) + " " + entry.name + "\n")) {
-            logger::info("compare: could not write handshake for {}", entry.name);
-            break;
+        const auto unpaused_start = Clock::now();
+        const FrameWait unpaused_wait = wait_frames(required_frames, key, key_down);
+        if (pause_enabled) {
+            g_pause_requested.store(true, std::memory_order_relaxed);
         }
-        const auto deadline = Clock::now() + std::chrono::milliseconds(script_seen ? 10000 : hold_ms);
+        const auto unpaused_end = Clock::now();
+        const std::uint32_t drawn = bars::drawn_frames() - frame_start;
+        const auto unpaused_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(unpaused_end - unpaused_start).count();
+        if (pause_enabled) {
+            logger::info("compare: {} unpaused wait drew {} frame(s) in {} ms{}", entry.name, drawn,
+                         unpaused_ms, unpaused_wait.timed_out ? "; frames stopped advancing" : "");
+        } else {
+            log_frame_wait(entry.name, unpaused_wait);
+        }
+        if (unpaused_wait.continue_sequence) {
+            ++sequence;
+        }
         bool answered = false;
-        while (Clock::now() < deadline && !g_cancel.load(std::memory_order_relaxed)) {
+        bool handshake_written = false;
+        if (unpaused_wait.continue_sequence) {
+            if (pause_enabled) {
+                const FrameWait paused_wait = wait_frames(3, key, key_down);
+                log_frame_wait("paused state", paused_wait);
+                if (!paused_wait.continue_sequence) {
+                    g_cancel.store(true, std::memory_order_relaxed);
+                }
+            }
+        }
+        if (unpaused_wait.continue_sequence && !g_cancel.load(std::memory_order_relaxed)) {
+            handshake_written = write_atomic(g_handshake, std::to_string(sequence) + " " + entry.name + "\n");
+            if (!handshake_written) {
+                logger::info("compare: could not write handshake for {}", entry.name);
+            }
+        }
+        const auto deadline = Clock::now() +
+                              std::chrono::milliseconds(script_seen ? 10000 : hold_ms);
+        while (handshake_written && Clock::now() < deadline &&
+               !g_cancel.load(std::memory_order_relaxed)) {
             if (acknowledged(sequence)) {
                 answered = true;
                 script_seen = true;
@@ -194,16 +247,23 @@ void run(int key, int hold_ms, bool freeze) {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
-        logger::info("compare: {} {}", entry.name,
-                     answered ? "capture acknowledged" : "hold timed out or cancelled");
+        if (answered) {
+            logger::info("compare: {} capture acknowledged", entry.name);
+        } else if (handshake_written) {
+            logger::info("compare: {} {}", entry.name,
+                         g_cancel.load(std::memory_order_relaxed) ? "cancelled" : "hold timed out");
+        }
         if (g_cancel.load(std::memory_order_relaxed)) {
             break;
         }
+        if (!unpaused_wait.continue_sequence || !handshake_written) {
+            break;
+        }
     }
+    g_pause_requested.store(false, std::memory_order_relaxed);
     state::set_compare_mode(state::CompareMode::Normal);
     bars::set_hidden(was_hidden);
     DeleteFileW(g_handshake.c_str());
-    g_time_scale.store(1.0f, std::memory_order_relaxed);
     logger::info("compare sequence finished after {} state(s)", sequence);
     g_cancel.store(false);
 }
@@ -211,7 +271,7 @@ void run(int key, int hold_ms, bool freeze) {
 void shutdown() {
     g_cancel.store(true, std::memory_order_relaxed);
     state::set_compare_mode(state::CompareMode::Normal);
-    g_time_scale.store(1.0f, std::memory_order_relaxed);
+    g_pause_requested.store(false, std::memory_order_relaxed);
     if (!g_handshake.empty()) {
         DeleteFileW(g_handshake.c_str());
     }

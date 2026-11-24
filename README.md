@@ -95,8 +95,8 @@ cmake --build build-compare
 It writes the same `CutsceneFit.asi` name. In `[CutsceneFit]`, `compare_key`
 starts or cancels the sequence (default `F11`), `compare_hold_ms` sets the
 state hold when no capture script responds (default `1500`), and
-`compare_freeze=1` freezes time while cycling (default `1`). Freezing requires
-Script Hook RDR2. Without it, the sequence still runs without freezing.
+`compare_freeze=1` pauses the game while cycling (default `1`). Pausing requires
+Script Hook RDR2. Without it, the sequence still runs without pausing.
 On Linux, run `tools/compare/capture.sh <game-folder> <output-directory>` while
 the game runs inside gamescope. It captures each handshake state and returns an
 acknowledgement to the plugin.

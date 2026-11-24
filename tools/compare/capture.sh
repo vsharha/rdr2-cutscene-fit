@@ -20,15 +20,17 @@ if [[ -z ${GAMESCOPE_WAYLAND_DISPLAY:-} ]]; then
         printf 'XDG_RUNTIME_DIR is unset; set GAMESCOPE_WAYLAND_DISPLAY explicitly.\n' >&2
         exit 1
     fi
-    socket=$(find "$runtime_dir" -maxdepth 1 -type s -name 'gamescope-*' -print -quit)
+    # gamescope also creates gamescope-N-ei, an input socket that gamescopectl hangs on.
+    socket=$(find "$runtime_dir" -maxdepth 1 -type s -regextype posix-extended -regex '.*/gamescope-[0-9]+' -print -quit)
     if [[ -z $socket ]]; then
         printf 'No gamescope-* socket found in %s; set GAMESCOPE_WAYLAND_DISPLAY explicitly.\n' "$runtime_dir" >&2
         exit 1
     fi
-    export GAMESCOPE_WAYLAND_DISPLAY=$socket
+    export GAMESCOPE_WAYLAND_DISPLAY=${socket##*/}
 fi
 
 mkdir -p "$output_dir"
+output_dir=$(cd "$output_dir" && pwd -P)
 last_sequence=0
 temp_done="$done_file.tmp"
 cleanup() {
@@ -50,7 +52,20 @@ while true; do
             image="$output_dir/$sequence-$state.png"
             printf 'Capturing %s...\n' "$image"
             rm -f "$image"
-            "${GAMESCOPE_SCREENSHOT[@]}" "$image"
+            if timeout 10 "${GAMESCOPE_SCREENSHOT[@]}" "$image"; then
+                :
+            else
+                status=$?
+                if [[ $status -eq 124 ]]; then
+                    printf 'Timed out after 10 seconds running gamescopectl screenshot for %s.\n' "$image" >&2
+                else
+                    printf 'gamescopectl screenshot failed with status %s for %s.\n' "$status" "$image" >&2
+                fi
+                exit 1
+            fi
+            printf '%s\n' "$sequence" > "$temp_done"
+            mv -f "$temp_done" "$done_file"
+            last_sequence=$sequence
             wait_count=0
             while [[ ! -f $image && $wait_count -lt 100 ]]; do
                 sleep 0.1
@@ -72,11 +87,8 @@ while true; do
                 previous_size=$size
                 sleep 0.2
             done
-            printf '%s\n' "$sequence" > "$temp_done"
-            mv -f "$temp_done" "$done_file"
-            last_sequence=$sequence
             printf 'Acknowledged sequence %s (%s).\n' "$sequence" "$state"
         fi
     fi
-    sleep 0.1
+    sleep 0.01
 done

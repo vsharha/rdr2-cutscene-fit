@@ -22,7 +22,8 @@
 // Compare-build only:
 //   compare_key      starts or cancels the four-state screenshot sequence. Default: F11.
 //   compare_hold_ms  state hold in milliseconds without a capture response. Default: 1500.
-//   compare_freeze   1 freezes time through Script Hook while cycling, 0 does not. Default: 1.
+//   compare_freeze   1 pauses between shots and unpauses briefly for each capture through Script Hook.
+//                   0 runs without pausing. Default: 1.
 
 #include <atomic>
 #include <chrono>
