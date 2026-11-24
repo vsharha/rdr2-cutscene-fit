@@ -32,6 +32,10 @@ correctly, and nothing changes.
 **Status:** works in cutscenes and the cinematic camera on `RDR2.exe`
 1.0.1491.50, including camera blends, tested at 3440x1440 (21:9), 3440x1200 (2.87:1) and 2880x1440 (18:9).
 
+**Known limitation:** in the scene after the intro video, the game's wide side
+bars show for about a second before the plugin's narrow bars suddenly replace
+them. The game draws those first bars in a way the plugin does not change.
+
 ## Comparison
 
 The same cutscene frame on a 21:9 screen, taken with the
