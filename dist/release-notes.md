@@ -5,9 +5,11 @@ screen as it can, and fills what is left with the game's own bars.
 
 Tested on `RDR2.exe` 1.0.1491.50 at 3440x1440, 3440x1200 and 2880x1440.
 
-## Changes in 1.0.1
+## Changes in 1.0.2
 
-- Bars hidden with the End key stay hidden after pausing and unpausing.
+- The End key and `bars=0` hide the game's bars on any screen, including 16:9
+  and narrower. The zoom and the bar sizes still change only on screens wider
+  than 16:9.
 
 ## Requirements
 
