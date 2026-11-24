@@ -19,6 +19,10 @@
 //   aspect       screen aspect ratio. 0 measures the game window's client area once a
 //                second. Default: 0.
 //   log          1 writes CutsceneFit.log next to the .asi, 0 writes nothing. Default: 1.
+// Compare-build only:
+//   compare_key      starts or cancels the four-state screenshot sequence. Default: F11.
+//   compare_hold_ms  state hold in milliseconds without a capture response. Default: 1500.
+//   compare_freeze   1 freezes time through Script Hook while cycling, 0 does not. Default: 1.
 
 #include <atomic>
 #include <chrono>
@@ -34,6 +38,9 @@
 #include <MinHook.h>
 
 #include "bars.h"
+#ifdef CUTSCENEFIT_COMPARE
+#include "compare.h"
+#endif
 #include "common/log.h"
 #include "common/mem.h"
 #include "common/paths.h"
@@ -164,6 +171,9 @@ private:
 };
 
 void shutdown() {
+#ifdef CUTSCENEFIT_COMPARE
+    compare::shutdown();
+#endif
     bars::restore();
     if (g_hooks_created.exchange(false)) {
         MH_DisableHook(MH_ALL_HOOKS);
@@ -249,12 +259,20 @@ DWORD WINAPI run(LPVOID parameter) {
         if (!install(module, s)) {
             return 1;
         }
+#ifdef CUTSCENEFIT_COMPARE
+        compare::initialize(self, asi, s.compare_freeze);
+        logger::info("compare settings: key=0x{:X} hold_ms={} freeze={}", s.compare_key,
+                     s.compare_hold_ms, s.compare_freeze);
+#endif
 
         AspectTracker aspect(s.aspect);
         ZoomLog zoom_log;
         CounterLog counter_log;
         bool hide = !s.bars;
         bool key_down = false;
+#ifdef CUTSCENEFIT_COMPARE
+        bool compare_key_down = false;
+#endif
         auto last_aspect = Clock::now() - kAspectInterval;
 
         while (!g_stop.load()) {
@@ -268,6 +286,12 @@ DWORD WINAPI run(LPVOID parameter) {
                 logger::info("toggle key: bars {}{}", hide ? "hidden" : "shown",
                              state::applicable() ? "" : " (takes effect on screens wider than 16:9)");
             }
+#ifdef CUTSCENEFIT_COMPARE
+            if (pressed(s.compare_key, compare_key_down)) {
+                compare::run(s.compare_key, s.compare_hold_ms, s.compare_freeze);
+                compare_key_down = false;
+            }
+#endif
             bars::set_hidden(hide && state::applicable());
             zoom_log.tick(now);
             counter_log.tick(now);

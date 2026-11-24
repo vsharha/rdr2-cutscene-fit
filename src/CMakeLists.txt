@@ -34,4 +34,8 @@ add_asi(CutsceneFit
     settings.cpp
     state.cpp
     zoom.cpp)
+if(CUTSCENEFIT_COMPARE)
+    target_sources(CutsceneFit PRIVATE compare.cpp)
+    target_compile_definitions(CutsceneFit PRIVATE CUTSCENEFIT_COMPARE)
+endif()
 target_link_libraries(CutsceneFit PRIVATE minhook)

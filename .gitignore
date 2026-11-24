@@ -1,4 +1,5 @@
 /build/
+/build-compare/
 /out/
 *.asi
 *.dll

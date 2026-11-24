@@ -85,6 +85,22 @@ cmake --build build
 The `.asi` files are written to `build/bin/`. With MSVC, configure with
 `cmake -B build -A x64` and build with `cmake --build build --config Release`.
 
+For a screenshot comparison build, use a separate directory:
+
+```sh
+cmake -B build-compare -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake -DCMAKE_BUILD_TYPE=Release -DCUTSCENEFIT_COMPARE=ON
+cmake --build build-compare
+```
+
+It writes the same `CutsceneFit.asi` name. In `[CutsceneFit]`, `compare_key`
+starts or cancels the sequence (default `F11`), `compare_hold_ms` sets the
+state hold when no capture script responds (default `1500`), and
+`compare_freeze=1` freezes time while cycling (default `1`). Freezing requires
+Script Hook RDR2. Without it, the sequence still runs without freezing.
+On Linux, run `tools/compare/capture.sh <game-folder> <output-directory>` while
+the game runs inside gamescope. It captures each handshake state and returns an
+acknowledgement to the plugin.
+
 The plugin is in [`src/`](src/) and shared code in [`common/`](common/). Each
 research tool is in its own directory under [`tools/`](tools/) and builds its own
 `.asi`. The tools are for finding game code and are not needed to use the plugin.

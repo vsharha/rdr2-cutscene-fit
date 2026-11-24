@@ -66,6 +66,9 @@ Override g_request_target;
 
 std::atomic<std::uint32_t> g_letterbox_frames{0};
 std::atomic<std::uint32_t> g_flagged_frames{0};
+#ifdef CUTSCENEFIT_COMPARE
+std::atomic<std::uint32_t> g_drawn_frames{0};
+#endif
 
 bool write_byte(std::uintptr_t address, std::uint8_t value) {
     void* const target = reinterpret_cast<void*>(address);
@@ -107,6 +110,9 @@ void update_detour() {
 // the drawn copy, which the game has just filled and nothing else touches before the
 // drawing reads it. Below 2.35:1 this removes the game's own side bars.
 void draw_detour() {
+#ifdef CUTSCENEFIT_COMPARE
+    g_drawn_frames.fetch_add(1, std::memory_order_relaxed);
+#endif
     if (state::applicable() && load<std::uint8_t>(g_anchor + letterbox::kDrawnEnable) != 0) {
         const float weight = load<float>(g_anchor + letterbox::kWeight);
         const float width = weight > 0.0f ? state::side_fraction() * weight : 0.0f;
@@ -167,5 +173,9 @@ Counters counters() {
     return {g_letterbox_frames.load(std::memory_order_relaxed),
             g_flagged_frames.load(std::memory_order_relaxed)};
 }
+
+#ifdef CUTSCENEFIT_COMPARE
+std::uint32_t drawn_frames() { return g_drawn_frames.load(std::memory_order_relaxed); }
+#endif
 
 }  // namespace bars

@@ -16,6 +16,11 @@ struct Settings {
     zoom::Start zoom_start = zoom::Start::Cut;
     double aspect = 0.0;
     bool log = true;
+#ifdef CUTSCENEFIT_COMPARE
+    int compare_key = 0;
+    int compare_hold_ms = 1500;
+    bool compare_freeze = true;
+#endif
 
     // Problems found while reading, for the log once it is open.
     std::vector<std::string> warnings;

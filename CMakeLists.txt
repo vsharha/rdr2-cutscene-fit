@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 
 project(CutsceneFit LANGUAGES C CXX)
 
+option(CUTSCENEFIT_COMPARE "Build screenshot comparison controls into CutsceneFit" OFF)
+
 if(NOT WIN32)
     message(FATAL_ERROR "Build for Windows: pass -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake.")
 endif()

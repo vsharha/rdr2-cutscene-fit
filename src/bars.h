@@ -28,5 +28,8 @@ struct Counters {
     std::uint32_t flagged_frames = 0;
 };
 Counters counters();
+#ifdef CUTSCENEFIT_COMPARE
+std::uint32_t drawn_frames();
+#endif
 
 }  // namespace bars

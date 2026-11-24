@@ -37,10 +37,24 @@ std::string narrow(const std::wstring& text) {
 Settings read(const std::wstring& path) {
     Settings s;
     s.toggle_key = VK_END;
+#ifdef CUTSCENEFIT_COMPARE
+    s.compare_key = VK_F11;
+#endif
 
     s.enabled = read_flag(L"enabled", s.enabled, path);
     s.bars = read_flag(L"bars", s.bars, path);
     s.log = read_flag(L"log", s.log, path);
+#ifdef CUTSCENEFIT_COMPARE
+    const std::wstring compare_key = read_string(L"compare_key", L"F11", path);
+    s.compare_key = keys::parse(compare_key, -1);
+    if (s.compare_key < 0) {
+        s.compare_key = VK_F11;
+        s.warnings.push_back(std::format("compare_key \"{}\" is not a key name; using F11", narrow(compare_key)));
+    }
+    const int hold = GetPrivateProfileIntW(kSection, L"compare_hold_ms", 1500, path.c_str());
+    if (hold >= 0) s.compare_hold_ms = hold;
+    s.compare_freeze = read_flag(L"compare_freeze", true, path);
+#endif
 
     const std::wstring key = read_string(L"toggle_key", L"End", path);
     const int parsed = keys::parse(key, -1);

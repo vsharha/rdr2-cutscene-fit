@@ -65,7 +65,7 @@ char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
 
     const bool letterbox = load<std::uint8_t>(g_enable) != 0;
     bool active = g_active.load(std::memory_order_relaxed);
-    if (g_start == Start::Letterbox) {
+    if (state::force_zoom() || g_start == Start::Letterbox) {
         active = letterbox;
     } else if (!letterbox) {
         active = false;

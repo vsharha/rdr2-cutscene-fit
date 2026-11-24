@@ -6,6 +6,10 @@
 // game's threads read the derived values without locks.
 namespace state {
 
+#ifdef CUTSCENEFIT_COMPARE
+enum class CompareMode { Normal, Game, BarsRemoved, Fit, FitNoBars };
+#endif
+
 constexpr double kReferenceAspect = 16.0 / 9.0;
 // The aspect of the cutscene frame.
 constexpr double kFilmAspect = 2.35;
@@ -16,6 +20,13 @@ double aspect();
 // False until an aspect is set, and while the screen is no wider than 16:9. The
 // plugin changes nothing in the game then.
 bool applicable();
+#ifdef CUTSCENEFIT_COMPARE
+void set_compare_mode(CompareMode mode);
+CompareMode compare_mode();
+bool force_zoom();
+#else
+inline bool force_zoom() { return false; }
+#endif
 
 // k in vFOV' = 2 * atan(k * tan(vFOV / 2)).
 float zoom_scale();
