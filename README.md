@@ -32,10 +32,10 @@ blends, tested at 3440x1440 (21:9), 3440x1200 (2.87:1) and 2880x1440 (18:9).
 
 ## Comparison
 
-The same cutscene frame at 3440x1200 (2.87:1), taken with the
+The same cutscene frame on a 21:9 screen, taken with the
 [comparison build](#comparison-build).
 
-The game as shipped: a 16:9 box cropped to 2.35:1, with bars on all four sides.
+The game as shipped: bars on all four sides.
 
 ![The game as shipped](images/1-game.jpg)
 
@@ -45,7 +45,7 @@ unchanged, so the shot shows more of the scene than it was composed for.
 ![Bars removed](images/2-bars_removed.jpg)
 
 CutsceneFit: the 2.35:1 shot from the first image, filling the full height, with
-the game's bars at the sides.
+narrow bars at the sides.
 
 ![CutsceneFit](images/3-fit.jpg)
 
