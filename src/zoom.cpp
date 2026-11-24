@@ -31,15 +31,28 @@ constexpr std::uintptr_t kFovOffset = 0x60;  // float, vertical field of view in
 constexpr std::uintptr_t kFlagsOffset = 0xCC;  // u16
 // Set, with 0x40, on the frame of a camera cut.
 constexpr std::uint16_t kCutFlag = 0x80;
+// A weight lower than the previous call's by more than this counts as falling. Float
+// noise at 1.0 is around 1e-7; a slide-out of 0.25 s at 1000 fps still drops about
+// 4e-3 per call.
+constexpr float kFallTolerance = 1e-4f;
 constexpr double kPi = 3.14159265358979323846;
 
 using Fn = char (*)(std::int64_t*, std::uint8_t*, std::int64_t*, std::uint8_t*);
 
 Fn g_original = nullptr;
 std::uintptr_t g_enable = 0;
+std::uintptr_t g_weight = 0;
 Start g_start = Start::Cut;
 std::atomic<bool> g_active{false};
 std::atomic<std::uint32_t> g_transitions{0};
+std::atomic<std::uint32_t> g_slide_out_exits{0};
+std::atomic<std::uint32_t> g_ease_outs{0};
+// Set once the letterbox weight has started falling; cleared when the letterbox is gone.
+std::atomic<bool> g_leaving{false};
+// Set while the zoom is easing out with the bars; implies g_leaving and g_active.
+std::atomic<bool> g_easing{false};
+std::atomic<bool> g_previous_cut{false};
+std::atomic<float> g_previous_weight{0.0f};
 std::atomic<float> g_fov_input{0.0f};
 std::atomic<float> g_fov_output{0.0f};
 
@@ -60,18 +73,57 @@ void set_active(bool active) {
 char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_t* owner) {
     if (frame == nullptr || !state::applicable()) {
         set_active(false);
+        g_leaving.store(false, std::memory_order_relaxed);
+        g_easing.store(false, std::memory_order_relaxed);
+        g_previous_cut.store(false, std::memory_order_relaxed);
+        g_previous_weight.store(0.0f, std::memory_order_relaxed);
         return g_original(p1, frame, p3, owner);
     }
 
     const bool letterbox = load<std::uint8_t>(g_enable) != 0;
+    const float weight = load<float>(g_weight);
+    const bool cut =
+        (load<std::uint16_t>(reinterpret_cast<std::uintptr_t>(frame) + kFlagsOffset) & kCutFlag) != 0;
+    const bool previous_cut = g_previous_cut.exchange(cut, std::memory_order_relaxed);
     bool active = g_active.load(std::memory_order_relaxed);
-    if (state::force_zoom() || g_start == Start::Letterbox) {
+    bool leaving = g_leaving.load(std::memory_order_relaxed);
+    bool easing = g_easing.load(std::memory_order_relaxed);
+
+    if (!letterbox || state::force_zoom()) {
+        leaving = false;
+        easing = false;
+    } else if (!leaving && weight < g_previous_weight.load(std::memory_order_relaxed) - kFallTolerance) {
+        leaving = true;
+        if (active) {
+            // A cut hides the jump back to the normal field of view; without one the
+            // zoom eases out with the bars.
+            if (cut || previous_cut) {
+                active = false;
+                g_slide_out_exits.fetch_add(1, std::memory_order_relaxed);
+            } else {
+                easing = true;
+                g_ease_outs.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+    }
+    g_previous_weight.store(weight, std::memory_order_relaxed);
+    g_leaving.store(leaving, std::memory_order_relaxed);
+
+    if (leaving) {
+        if (cut || !(weight > 0.0f)) {
+            easing = false;
+        }
+        if (!easing) {
+            active = false;
+        }
+    } else if (state::force_zoom() || g_start == Start::Letterbox) {
         active = letterbox;
     } else if (!letterbox) {
         active = false;
     } else if (!active) {
-        active = (load<std::uint16_t>(reinterpret_cast<std::uintptr_t>(frame) + kFlagsOffset) & kCutFlag) != 0;
+        active = cut;
     }
+    g_easing.store(easing, std::memory_order_relaxed);
     set_active(active);
 
     const auto fov_address = reinterpret_cast<std::uintptr_t>(frame) + kFovOffset;
@@ -81,7 +133,10 @@ char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
         return g_original(p1, frame, p3, owner);
     }
 
-    const float corrected = correct(input, scale);
+    // While easing, the factor goes from the full zoom at weight 1 to none at weight 0,
+    // like the size of the bars.
+    const float applied = easing ? 1.0f - (1.0f - scale) * (weight < 1.0f ? weight : 1.0f) : scale;
+    const float corrected = correct(input, applied);
     store(fov_address, corrected);
     const char result = g_original(p1, frame, p3, owner);
     // The gameplay camera reads this field back as its next input, so leaving the
@@ -97,6 +152,7 @@ char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
 
 bool create(const game::Addresses& addresses, Start start) {
     g_enable = addresses.anchor + letterbox::kDrawnEnable;
+    g_weight = addresses.anchor + letterbox::kWeight;
     g_start = start;
     const MH_STATUS status = MH_CreateHook(reinterpret_cast<LPVOID>(addresses.zoom),
                                            reinterpret_cast<LPVOID>(&detour),
@@ -114,6 +170,14 @@ bool active() {
 
 std::uint32_t transitions() {
     return g_transitions.load(std::memory_order_relaxed);
+}
+
+std::uint32_t ease_outs() {
+    return g_ease_outs.load(std::memory_order_relaxed);
+}
+
+std::uint32_t slide_out_exits() {
+    return g_slide_out_exits.load(std::memory_order_relaxed);
 }
 
 Fov last_fov() {

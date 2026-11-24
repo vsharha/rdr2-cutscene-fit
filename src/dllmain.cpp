@@ -14,8 +14,9 @@
 //                Home, Insert, Delete, PageUp, PageDown, arrows, ...) or a virtual-key
 //                code such as 0x23. Default: End.
 //   zoom_start   cut: the field of view is narrowed from the first camera cut after the
-//                letterbox appears until it disappears. letterbox: whenever the
-//                letterbox is enabled. Default: cut.
+//                letterbox appears. letterbox: from when the letterbox is enabled.
+//                Either way the zoom eases out as the bars slide out, or ends at once
+//                if a camera cut came with them. Default: cut.
 //   aspect       screen aspect ratio. 0 measures the game window's client area once a
 //                second. Default: 0.
 //   log          1 writes CutsceneFit.log next to the .asi, 0 writes nothing. Default: 1.
@@ -138,8 +139,11 @@ public:
             return;
         }
         const zoom::Fov fov = zoom::last_fov();
-        logger::info("zoom {} ({} change(s) since the last line; last field of view {:.3f} -> {:.3f})",
-                     zoom::active() ? "active" : "inactive", count - seen_, fov.input, fov.output);
+        logger::info("zoom {} ({} change(s) since the last line; {} ease-out(s) and {} immediate slide-out exit(s) in "
+                     "total; last field of view {:.3f} -> {:.3f})",
+                     zoom::active() ? "active" : "inactive", count - seen_, zoom::ease_outs(),
+                     zoom::slide_out_exits(),
+                     fov.input, fov.output);
         seen_ = count;
         last_ = now;
     }

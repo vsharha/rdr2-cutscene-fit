@@ -98,7 +98,7 @@ log=1
 | `enabled`    | `1` installs the plugin's hooks, `0` loads it and does nothing.                                                                                                          |
 | `bars`       | `1` shows the bars when the game starts, `0` hides them.                                                                                                                 |
 | `toggle_key` | Key that shows or hides the bars: a name (`F1`–`F24`, `A`–`Z`, `0`–`9`, `End`, `Home`, `Insert`, `Delete`, `PageUp`, `PageDown`, arrow keys, …) or a virtual-key code such as `0x23`. |
-| `zoom_start` | `cut` narrows the field of view from the first camera cut after the letterbox appears until it disappears. `letterbox` narrows it whenever the letterbox is enabled.      |
+| `zoom_start` | `cut` narrows the field of view from the first camera cut after the letterbox appears. `letterbox` narrows it whenever the letterbox is enabled. The zoom eases out as the bars slide out. |
 | `aspect`     | Screen aspect ratio. `0` measures the game window's client area once a second.                                                                                           |
 | `log`        | `1` writes `CutsceneFit.log` next to the `.asi`, `0` writes nothing.                                                                                                      |
 

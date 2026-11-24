@@ -25,6 +25,11 @@ bool create(const game::Addresses& addresses, Start start);
 bool active();
 std::uint32_t transitions();
 
+// When the bars start to slide out, the zoom either switches off at once (a camera cut
+// on that frame or the one before) or eases out with the bars. These count each case.
+std::uint32_t slide_out_exits();
+std::uint32_t ease_outs();
+
 struct Fov {
     float input = 0.0f;
     float output = 0.0f;
