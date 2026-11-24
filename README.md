@@ -15,6 +15,8 @@ game's own bars. Because they are the game's bars, resized, they still slide in
 and out with the game's own animation at the start and end of a cutscene. A key
 toggles those bars off to show the extra scene the game renders behind them.
 
+The same applies to the in-game cinematic camera, which uses the same bars.
+
 It works at any aspect ratio. The plugin computes the frame and the bars from
 the game window's measured aspect, so screens between the common sizes below
 get the same fit. At 16:9 and narrower the game already frames cutscenes
@@ -27,8 +29,8 @@ correctly, and nothing changes.
 | 21:9   | full height | about 28 px each side at 3440x1440 |
 | 32:9   | full height | wide, at the sides                 |
 
-**Status:** works in cutscenes on `RDR2.exe` 1.0.1491.50, including camera
-blends, tested at 3440x1440 (21:9), 3440x1200 (2.87:1) and 2880x1440 (18:9).
+**Status:** works in cutscenes and the cinematic camera on `RDR2.exe`
+1.0.1491.50, including camera blends, tested at 3440x1440 (21:9), 3440x1200 (2.87:1) and 2880x1440 (18:9).
 
 ## Comparison
 
