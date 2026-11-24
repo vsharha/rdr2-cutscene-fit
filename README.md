@@ -40,7 +40,8 @@ The game as shipped: bars on all four sides.
 ![The game as shipped](images/1-game.jpg)
 
 Bars removed, as other mods do: the whole screen is used, but the camera is
-unchanged, so the shot shows more of the scene than it was composed for.
+unchanged, so the shot shows more of the scene than it was composed for. The
+tinted area is outside the intended shot.
 
 ![Bars removed](images/2-bars_removed.jpg)
 
