@@ -3,6 +3,7 @@
 
 #include "common/log.h"
 
+#include <atomic>
 #include <fstream>
 #include <mutex>
 
@@ -11,13 +12,21 @@
 namespace logger {
 namespace {
 
+std::atomic<bool> g_enabled{true};
 std::mutex g_mutex;
 std::ofstream g_file;
 std::filesystem::path g_directory;
 
 }  // namespace
 
+void set_enabled(bool enabled) {
+    g_enabled.store(enabled);
+}
+
 bool open(HMODULE self) {
+    if (!g_enabled.load()) {
+        return false;
+    }
     const std::filesystem::path asi = paths::module_path(self);
     const std::filesystem::path name = asi.stem().concat(L".log");
 
@@ -42,6 +51,9 @@ std::filesystem::path directory() {
 }
 
 void write(std::string_view line) {
+    if (!g_enabled.load()) {
+        return;
+    }
     SYSTEMTIME t{};
     GetLocalTime(&t);
     const std::string stamped = std::format("[{:02}:{:02}:{:02}.{:03}] {}\n", t.wHour, t.wMinute,

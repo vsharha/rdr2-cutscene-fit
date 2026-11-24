@@ -7,6 +7,22 @@
 #include <windows.h>
 
 namespace keys {
+namespace {
+
+struct NamedKey {
+    const wchar_t* name;
+    int code;
+};
+
+// Names are compared after upper-casing.
+constexpr NamedKey kNamedKeys[] = {
+    {L"END", VK_END},       {L"HOME", VK_HOME},       {L"INSERT", VK_INSERT}, {L"INS", VK_INSERT},
+    {L"DELETE", VK_DELETE}, {L"DEL", VK_DELETE},      {L"PAGEUP", VK_PRIOR},  {L"PGUP", VK_PRIOR},
+    {L"PAGEDOWN", VK_NEXT}, {L"PGDN", VK_NEXT},       {L"UP", VK_UP},         {L"DOWN", VK_DOWN},
+    {L"LEFT", VK_LEFT},     {L"RIGHT", VK_RIGHT},     {L"PAUSE", VK_PAUSE},   {L"SCROLLLOCK", VK_SCROLL},
+};
+
+}  // namespace
 
 int parse(const std::wstring& text, int fallback) {
     std::wstring s;
@@ -23,6 +39,11 @@ int parse(const std::wstring& text, int fallback) {
         const long n = std::wcstol(s.c_str() + 1, &end, 10);
         if (*end == L'\0' && n >= 1 && n <= 24) {
             return VK_F1 + static_cast<int>(n) - 1;
+        }
+    }
+    for (const NamedKey& key : kNamedKeys) {
+        if (s == key.name) {
+            return key.code;
         }
     }
     wchar_t* end = nullptr;

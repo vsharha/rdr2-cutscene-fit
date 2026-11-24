@@ -13,6 +13,9 @@
 // Not `log`: <math.h> already declares ::log.
 namespace logger {
 
+// While disabled, open() and write() do nothing. Enabled by default.
+void set_enabled(bool enabled);
+
 // Truncates and opens "<asi name>.log" next to the .asi at `self`. The game folder
 // can be read-only for normal users, so on failure it uses
 // %LOCALAPPDATA%\CutsceneFit instead. Every line is also sent to OutputDebugString.
