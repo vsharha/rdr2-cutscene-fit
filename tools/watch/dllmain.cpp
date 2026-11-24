@@ -51,6 +51,7 @@
 #include <vector>
 #include <windows.h>
 
+#include "common/keys.h"
 #include "common/log.h"
 #include "common/mem.h"
 #include "common/paths.h"
@@ -106,39 +107,14 @@ std::string narrow(const std::wstring& wide) {
     return logger::utf8(std::filesystem::path(wide));
 }
 
-int parse_key(const std::wstring& text, int fallback) {
-    std::wstring s;
-    for (const wchar_t c : text) {
-        if (!std::iswspace(c)) {
-            s += static_cast<wchar_t>(std::towupper(c));
-        }
-    }
-    if (s.size() == 1 && ((s[0] >= L'A' && s[0] <= L'Z') || (s[0] >= L'0' && s[0] <= L'9'))) {
-        return s[0];
-    }
-    if (s.size() >= 2 && s[0] == L'F') {
-        wchar_t* end = nullptr;
-        const long n = std::wcstol(s.c_str() + 1, &end, 10);
-        if (*end == L'\0' && n >= 1 && n <= 24) {
-            return VK_F1 + static_cast<int>(n) - 1;
-        }
-    }
-    wchar_t* end = nullptr;
-    const long code = std::wcstol(s.c_str(), &end, 0);
-    if (!s.empty() && *end == L'\0' && code > 0 && code < 256) {
-        return static_cast<int>(code);
-    }
-    return fallback;
-}
-
 Settings read_settings(const std::wstring& ini) {
     Settings s;
     s.settle_seconds = read_int(L"settle_seconds", s.settle_seconds, 0, 600, ini);
     s.survey_slots = read_int(L"survey_slots", s.survey_slots, 1, kMaxSurveySlots, ini);
     s.survey_repeats = read_int(L"survey_repeats", s.survey_repeats, 0, 1000, ini);
     s.survey_interval_ms = read_int(L"survey_interval_ms", s.survey_interval_ms, 50, 60000, ini);
-    s.arm_key = parse_key(read_string(L"arm_key", L"F9", ini), s.arm_key);
-    s.survey_key = parse_key(read_string(L"survey_key", L"F10", ini), s.survey_key);
+    s.arm_key = keys::parse(read_string(L"arm_key", L"F9", ini), s.arm_key);
+    s.survey_key = keys::parse(read_string(L"survey_key", L"F10", ini), s.survey_key);
     s.slots = narrow(read_string(L"slots", L"auto", ini));
     s.max_slots = read_int(L"max_slots", s.max_slots, 1, 4, ini);
     s.stack = narrow(read_string(L"stack", L"scan", ini));

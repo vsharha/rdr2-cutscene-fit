@@ -1,4 +1,5 @@
 add_library(common STATIC
+    keys.cpp
     log.cpp
     mem.cpp
     paths.cpp)
