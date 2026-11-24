@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(CutsceneFit LANGUAGES C CXX)
+project(CutsceneFit VERSION 1.0.0 LANGUAGES C CXX)
 
 option(CUTSCENEFIT_COMPARE "Build screenshot comparison controls into CutsceneFit" OFF)
 
@@ -37,3 +37,14 @@ add_subdirectory(tools/zoom)
 
 # The plugin itself.
 add_subdirectory(src)
+
+# The release zip holds the plugin, a sample settings file and the licences, at the
+# zip root so that it extracts straight into the game folder. The research tools
+# have no install rules.
+install(TARGETS CutsceneFit RUNTIME DESTINATION .)
+install(FILES dist/CutsceneFit.ini LICENSE THIRD-PARTY-NOTICES.txt DESTINATION .)
+
+set(CPACK_GENERATOR ZIP)
+set(CPACK_PACKAGE_FILE_NAME CutsceneFit-${PROJECT_VERSION})
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
+include(CPack)

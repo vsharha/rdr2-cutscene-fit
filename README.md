@@ -67,6 +67,10 @@ The plugin does not detect Red Dead Online. Remove it before playing Online.
 
 ## Installing
 
+Releases are on the
+[GitHub releases page](https://github.com/vsharha/rdr2-cutscene-fit/releases).
+Each contains the plugin, a sample `CutsceneFit.ini` and the licence notices.
+
 Copy `CutsceneFit.asi` into the game folder, next to `RDR2.exe`. On Linux under
 Proton, add `WINEDLLOVERRIDES="dinput8=n,b" %command%` to the game's launch
 options so Wine loads the ASI loader's `dinput8.dll`.
@@ -106,7 +110,13 @@ cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake -DCMAKE_BUILD
 cmake --build build
 ```
 
-The `.asi` files are written to `build/bin/`. With MSVC, configure with
+The `.asi` files are written to `build/bin/`. To make the release zip, run:
+
+```sh
+cmake --build build --target package
+```
+
+It writes `build/CutsceneFit-<version>.zip`. With MSVC, configure with
 `cmake -B build -A x64` and build with `cmake --build build --config Release`.
 
 The plugin is in [`src/`](src/) and shared code in [`common/`](common/). Each
@@ -186,6 +196,6 @@ MIT. Parts are adapted from
 also MIT.
 
 The plugin includes [MinHook](https://github.com/TsudaKageyu/minhook), under the
-BSD 2-Clause license. A binary release must include MinHook's `LICENSE.txt`,
-which also carries the notices for the Hacker Disassembler Engine it contains,
-and the MIT notice of rdr2-ultrawide-proper-black-bar-fix.
+BSD 2-Clause license. The release zip includes `LICENSE` and
+`THIRD-PARTY-NOTICES.txt`, which carry the notices for MinHook and
+rdr2-ultrawide-proper-black-bar-fix.
