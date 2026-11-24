@@ -7,10 +7,7 @@ Tested on `RDR2.exe` 1.0.1491.50 at 3440x1440, 3440x1200 and 2880x1440.
 
 ## Changes in 1.0.1
 
-- At the end of a cutscene the zoom now eases out with the bars instead of
-  staying until they are gone. Leaving the cinematic camera ends it at the cut.
 - Bars hidden with the End key stay hidden after pausing and unpausing.
-- The requirements now point to Lenny's Mod Loader on rdr2mods.com.
 
 ## Requirements
 
