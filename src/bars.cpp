@@ -52,8 +52,23 @@ bool write_byte(std::uintptr_t address, std::uint8_t value) {
     return true;
 }
 
+// Puts the alpha the game would have stored into both copies, without waiting for the
+// game to execute the storing instruction again.
+// The computed copy goes first: if the game copies it to the drawn copy between the two
+// stores, the drawn copy still receives 255.
+void store_shown_alpha() {
+    store<std::uint8_t>(g_anchor + letterbox::kAlpha, kShownAlpha);
+    store<std::uint8_t>(g_anchor + letterbox::kDrawnAlpha, kShownAlpha);
+}
+
 void update_detour() {
     g_update_original();
+
+    // The instruction patch makes the computed alpha zero from the moment the game
+    // stores it; this store keeps it zero if anything else has written 255.
+    if (g_hidden.load(std::memory_order_relaxed) && state::applicable()) {
+        store<std::uint8_t>(g_anchor + letterbox::kAlpha, kHiddenAlpha);
+    }
 
     // The game's box aspect snaps to preset ratios, so its calculated height is wrong
     // on some ultrawide screens. Write the screen-based height into the computed copy.
@@ -76,10 +91,17 @@ void update_detour() {
 // Side bars have no input in the game's computation, so their width is written into
 // the drawn copy, which the game has just filled and nothing else touches before the
 // drawing reads it. Below 2.35:1 this removes the game's own side bars.
+//
+// While the bars are hidden the drawn alpha is also zeroed here, so the drawing never
+// reads an opaque bar, including on a frame where the update did not run (paused, or
+// the first frame after unpausing).
 void draw_detour() {
 #ifdef CUTSCENEFIT_COMPARE
     g_drawn_frames.fetch_add(1, std::memory_order_relaxed);
 #endif
+    if (g_hidden.load(std::memory_order_relaxed) && state::applicable()) {
+        store<std::uint8_t>(g_anchor + letterbox::kDrawnAlpha, kHiddenAlpha);
+    }
     if (state::applicable() && load<std::uint8_t>(g_anchor + letterbox::kDrawnEnable) != 0) {
         const float weight = load<float>(g_anchor + letterbox::kWeight);
         const float width = weight > 0.0f ? state::side_fraction() * weight : 0.0f;
@@ -118,6 +140,9 @@ void set_hidden(bool hidden) {
     }
     if (write_byte(g_immediate, hidden ? kHiddenAlpha : kShownAlpha)) {
         g_hidden.store(hidden);
+        if (!hidden) {
+            store_shown_alpha();
+        }
         logger::info("bar alpha patch: bars {}", hidden ? "hidden" : "shown");
     }
 }
@@ -129,6 +154,7 @@ bool hidden() {
 void restore() {
     if (g_immediate != 0 && g_hidden.load() && write_byte(g_immediate, kShownAlpha)) {
         g_hidden.store(false);
+        store_shown_alpha();
     }
 }
 

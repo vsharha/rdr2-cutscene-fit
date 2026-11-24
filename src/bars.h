@@ -12,12 +12,15 @@ namespace bars {
 // Creates the hooks on the letterbox update and drawing without enabling them.
 bool create(const game::Addresses& addresses);
 
-// Sets the bar alpha to zero (hidden) or back to the game's 0xFF (shown) by patching
-// the immediate of the instruction that stores it. Logs when the state changes.
+// Hides the bars by setting their alpha to zero, or shows them again with the game's
+// own 0xFF. Hidden, the immediate of the instruction that stores the computed alpha is
+// patched, and the update and drawing hooks also store zero into the computed and drawn
+// alpha. Showing restores the immediate and stores 0xFF once into both alphas, and the
+// hooks then leave the alpha alone. Logs when the state changes.
 void set_hidden(bool hidden);
 bool hidden();
 
-// Puts back the alpha immediate changed by the plugin.
+// Puts back the alpha immediate changed by the plugin and stops hiding.
 void restore();
 
 struct Counters {
