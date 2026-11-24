@@ -8,9 +8,13 @@
 // It reads the input field of view from the camera frame, optionally replaces it with
 //   new = 2 * atan(k * tan(old / 2))
 // calls the original, and records the input, the value written, the output after the
-// game's own adjustment and clamp, the frame's flags and the letterbox enable byte in a
-// ring buffer of the last 600 frames. Nothing is patched if the call site or the callee
-// does not match the expected bytes.
+// game's own adjustment and clamp, the frame's flags, the letterbox weight and enable
+// byte, the four pointer arguments, the first 0x100 bytes of the camera frame (copied
+// before the call) and the first 0x40 bytes behind p1, p3 and owner in a ring buffer of
+// the last 2400 frames (about 1.3 MB). With mode off the call is passed through unchanged and the tool
+// only records. Nothing is patched if the call site or the callee does not match the
+// expected bytes; a callee that starts with a jump (E9), as when CutsceneFit has hooked
+// it with MinHook, is accepted and logged, so this tool and the plugin can run together.
 //
 // Settings are read from "zoom.ini" next to zoom.asi, section [zoom]:
 //   settle_seconds   wait after the plugin loads before verifying and hooking. Default: 15.
@@ -20,11 +24,22 @@
 //                    else the primary monitor's resolution. Default: 0.
 //   scale            k, overriding the formula k = (16/9) / min(aspect, 2.35). 0: use the
 //                    formula. A value such as 0.5 makes the effect obvious. Default: 0.
-//   dump_frames      frames written by the dump key, 1..600. Default: 300.
+//   dump_frames      frames written by the dump key, 1..2400. Default: 2400 (the whole ring).
 //   mode_key         cycles off, always, letterbox. Default: F7.
-//   dump_key         logs the last dump_frames records, oldest first. Default: F8.
+//   dump_key         appends the last dump_frames records, oldest first, to zoom-frames.log
+//                    next to zoom.asi (zoom.log's directory), and logs one line about it.
+//                    The file is not truncated; each dump starts with a "# zoom-frames dump N"
+//                    header block describing the fields. The first record, every record with
+//                    flag 0x80 and the 3 records on each side carry the full set (pointers,
+//                    weight, enable byte, flags, fov, frame bytes 0..0xFF, bytes behind p1,
+//                    p3 and owner); the others carry the scalars and the frame qwords that
+//                    differ from the previous record, plus the p3 qwords that differ when p3
+//                    is the same pointer. Records within 3 of a cut or of a change of p3 are
+//                    full. Every R line has p3vt and ownervt, the first qword at p3 and at
+//                    owner. A dump of 2400 records is about 1 MB typically and at most about
+//                    3.2 MB. Default: F8.
 //   hook_key         removes the hook, or installs it again. Default: F6.
-// The log gets a summary line every second while the mode is not off, every 10 s otherwise.
+// zoom.log gets a summary line every second while the mode is not off, every 10 s otherwise.
 // A key is a name (F1..F24, A..Z, 0..9) or a virtual-key code such as 0x78.
 
 #include <algorithm>
@@ -39,6 +54,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 #include <windows.h>
 
@@ -46,6 +62,7 @@
 #include "common/log.h"
 #include "common/mem.h"
 #include "common/paths.h"
+#include "framelog.h"
 #include "hook.h"
 #include "ring.h"
 
@@ -73,7 +90,7 @@ struct Settings {
     Mode mode = Mode::Off;
     double aspect = 0.0;
     double scale = 0.0;
-    int dump_frames = 300;
+    int dump_frames = static_cast<int>(zoom::ring::kCapacity);
     int mode_key = VK_F7;
     int dump_key = VK_F8;
     int hook_key = VK_F6;
@@ -231,7 +248,8 @@ std::optional<float> viewport_fov(std::uintptr_t base) {
 
 class Reporter {
 public:
-    explicit Reporter(const mem::Region& module) : base_(module.base) {
+    Reporter(const mem::Region& module, std::string version)
+        : base_(module.base), version_(std::move(version)) {
         LARGE_INTEGER frequency;
         QueryPerformanceFrequency(&frequency);
         frequency_ = static_cast<double>(frequency.QuadPart);
@@ -264,48 +282,27 @@ public:
         last_count_ = count;
     }
 
+    // Appends the newest `frames` records to zoom-frames.log, next to zoom.log.
     void dump(int frames) const {
-        const std::uint64_t count = zoom::ring::count();
-        const std::uint64_t wanted = static_cast<std::uint64_t>(frames);
-        const std::uint64_t first = count > wanted ? count - wanted : 0;
-        logger::info("dump: frames {}..{} of {} recorded, times in ms from the first line shown",
-                     first, count == 0 ? 0 : count - 1, count);
-
-        std::uint64_t origin = 0;
-        std::uint64_t previous = 0;
-        bool have_origin = false;
-        std::uint64_t skipped = 0;
-        for (std::uint64_t frame = first; frame < count; ++frame) {
-            zoom::Record r;
-            if (!zoom::ring::read(frame, r)) {
-                ++skipped;
-                logger::info("frame {} skipped (overwritten or being written)", frame);
-                continue;
-            }
-            if (!have_origin) {
-                origin = r.qpc;
-                previous = r.qpc;
-                have_origin = true;
-            }
-            logger::info("frame {} t={:+.3f} dt={:.3f} in={:.4f} set={:.4f} out={:.4f} flags=0x{:04X} "
-                         "letterbox={} mode={}",
-                         r.frame, to_ms(r.qpc, origin), to_ms(r.qpc, previous), r.input, r.corrected,
-                         r.output, r.flags, static_cast<int>(r.letterbox),
-                         zoom::mode_name(static_cast<Mode>(r.mode)));
-            previous = r.qpc;
+        std::filesystem::path directory = logger::directory();
+        if (directory.empty()) {
+            directory = paths::fallback_directory();
         }
-        logger::info("dump: done, {} skipped", skipped);
+        const std::filesystem::path file = directory / zoom::framelog::kFileName;
+        const zoom::framelog::Result result = zoom::framelog::write(file, frames, frequency_, version_);
+        if (!result.written) {
+            logger::info("dump: could not write {}", logger::utf8(file));
+            return;
+        }
+        logger::info("dump: {} records ({} with the full set, {} skipped), {} bytes appended to {}",
+                     result.records, result.full_records, result.skipped, result.bytes,
+                     logger::utf8(file));
     }
 
 private:
-    double to_ms(std::uint64_t later, std::uint64_t earlier) const {
-        const double delta = later >= earlier ? static_cast<double>(later - earlier)
-                                              : -static_cast<double>(earlier - later);
-        return delta * 1000.0 / frequency_;
-    }
-
     std::uintptr_t base_;
     double frequency_ = 1.0;
+    std::string version_;
     std::chrono::steady_clock::time_point last_time_{};
     std::uint64_t last_count_ = 0;
 };
@@ -357,10 +354,10 @@ DWORD WINAPI run(LPVOID parameter) {
         zoom::hook::set_mode(settings.mode);
         apply_correction(settings);
         zoom::hook::install();
-        logger::info("ready: key 0x{:X} cycles the mode, 0x{:X} dumps the ring, 0x{:X} removes or "
+        logger::info("ready: key 0x{:X} cycles the mode, 0x{:X} dumps the ring to zoom-frames.log, 0x{:X} removes or "
                      "installs the hook", settings.mode_key, settings.dump_key, settings.hook_key);
 
-        Reporter reporter(module);
+        Reporter reporter(module, version);
         bool mode_down = false;
         bool dump_down = false;
         bool hook_down = false;

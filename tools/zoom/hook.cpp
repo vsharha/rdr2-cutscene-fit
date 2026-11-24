@@ -34,6 +34,15 @@ constexpr std::uintptr_t kCalleeRva = 0x3C6168;
 constexpr std::uintptr_t kFovOffset = 0x60;
 constexpr std::uintptr_t kFlagsOffset = 0xCC;
 constexpr std::uint8_t kCallOpcode = 0xE8;
+constexpr std::uint8_t kJumpOpcode = 0xE9;
+// The instruction `mov byte ptr [rip + disp32], 0FFh` that stores the letterbox alpha;
+// the byte it stores to is the anchor of the letterbox state.
+constexpr std::uintptr_t kAnchorStoreRva = 0x320545;
+constexpr std::array<std::uint8_t, 12> kAnchorStore = {0xC6, 0x05, 0x00, 0x00, 0x00, 0x00,
+                                                       0xFF, 0x0F, 0x28, 0x74, 0x24, 0x60};
+constexpr std::uintptr_t kAnchorStoreLength = 7;
+constexpr std::uintptr_t kWeightBelowAnchor = 8;
+constexpr std::uintptr_t kEnableAboveAnchor = 0x21;
 constexpr double kPi = 3.14159265358979323846;
 
 constexpr std::array<std::uint8_t, 24> kCalleePrologue = {
@@ -48,6 +57,7 @@ std::uint8_t* g_stub = nullptr;
 std::int32_t g_original_rel32 = 0;
 std::int32_t g_stub_rel32 = 0;
 const volatile std::uint8_t* g_letterbox = nullptr;
+const volatile float* g_weight = nullptr;
 std::atomic<bool> g_installed{false};
 std::atomic<std::uint8_t> g_mode{static_cast<std::uint8_t>(Mode::Off)};
 std::atomic<float> g_scale{1.0f};
@@ -58,6 +68,17 @@ float correct(float fov, float scale) {
                               (180.0 / kPi));
 }
 
+// Copies `size` bytes from a pointer the game passed us. ReadProcessMemory is one system
+// call that fails instead of faulting when the memory is gone, and it neither allocates
+// nor takes a lock in user mode. Returns whether all bytes were copied.
+bool copy_bytes(const void* source, std::uint8_t* dest, std::size_t size) {
+    if (source == nullptr) {
+        return false;
+    }
+    SIZE_T read = 0;
+    return ReadProcessMemory(GetCurrentProcess(), source, dest, size, &read) != FALSE && read == size;
+}
+
 // Runs on the game's update thread once per frame: no allocation, no logging, no locks.
 char hooked(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_t* owner) {
     if (frame == nullptr) {
@@ -65,6 +86,25 @@ char hooked(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
     }
     const auto mode = static_cast<Mode>(g_mode.load(std::memory_order_relaxed));
     const std::uint8_t letterbox = *g_letterbox;
+
+    Record record;
+    record.p1 = reinterpret_cast<std::uintptr_t>(p1);
+    record.frame_pointer = reinterpret_cast<std::uintptr_t>(frame);
+    record.p3 = reinterpret_cast<std::uintptr_t>(p3);
+    record.owner = reinterpret_cast<std::uintptr_t>(owner);
+    record.weight = *g_weight;
+    if (copy_bytes(frame, record.frame_bytes.data(), record.frame_bytes.size())) {
+        record.valid |= kValidFrame;
+    }
+    if (copy_bytes(p1, record.p1_bytes.data(), record.p1_bytes.size())) {
+        record.valid |= kValidP1;
+    }
+    if (copy_bytes(p3, record.p3_bytes.data(), record.p3_bytes.size())) {
+        record.valid |= kValidP3;
+    }
+    if (copy_bytes(owner, record.owner_bytes.data(), record.owner_bytes.size())) {
+        record.valid |= kValidOwner;
+    }
 
     float input = 0.0f;
     std::memcpy(&input, frame + kFovOffset, sizeof(input));
@@ -80,7 +120,6 @@ char hooked(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
 
     const char result = g_original(p1, frame, p3, owner);
 
-    Record record;
     std::memcpy(&record.output, frame + kFovOffset, sizeof(record.output));
     std::memcpy(&record.flags, frame + kFlagsOffset, sizeof(record.flags));
     LARGE_INTEGER counter;
@@ -148,6 +187,35 @@ std::int32_t current_rel32() {
     return value;
 }
 
+// Finds the letterbox anchor from the alpha store at +0x320545. If the instruction is not
+// there, falls back to the fixed enable address (anchor + 0x21 = kLetterboxEnableRva).
+void resolve_letterbox(const mem::Region& module) {
+    std::uintptr_t anchor = module.base + kLetterboxEnableRva - kEnableAboveAnchor;
+
+    std::array<std::uint8_t, kAnchorStore.size()> store{};
+    const std::uintptr_t address = module.base + kAnchorStoreRva;
+    bool matches = mem::copy_readable(address, store.data(), store.size()) == 0;
+    for (std::size_t i = 0; matches && i < store.size(); ++i) {
+        const bool wildcard = i >= 2 && i < 6;
+        matches = wildcard || store[i] == kAnchorStore[i];
+    }
+    if (matches) {
+        std::int32_t displacement = 0;
+        std::memcpy(&displacement, store.data() + 2, sizeof(displacement));
+        const std::uintptr_t found =
+            address + kAnchorStoreLength + static_cast<std::uintptr_t>(static_cast<std::int64_t>(displacement));
+        logger::info("verify: letterbox anchor +0x{:X} from the alpha store at +0x{:X}{}",
+                     found - module.base, kAnchorStoreRva,
+                     found == anchor ? "" : " (differs from the fixed address; using it)");
+        anchor = found;
+    } else {
+        logger::info("verify: the alpha store at +0x{:X} does not match; letterbox anchor +0x{:X} from the "
+                     "fixed address", kAnchorStoreRva, anchor - module.base);
+    }
+    g_letterbox = reinterpret_cast<const volatile std::uint8_t*>(anchor + kEnableAboveAnchor);
+    g_weight = reinterpret_cast<const volatile float*>(anchor - kWeightBelowAnchor);
+}
+
 }  // namespace
 
 bool verify(const mem::Region& module) {
@@ -170,16 +238,31 @@ bool verify(const mem::Region& module) {
     }
 
     std::array<std::uint8_t, kCalleePrologue.size()> bytes{};
-    if (mem::copy_readable(callee, bytes.data(), bytes.size()) != 0 || bytes != kCalleePrologue) {
+    if (mem::copy_readable(callee, bytes.data(), bytes.size()) != 0) {
+        logger::info("verify: FAILED, +0x{:X} is not readable", kCalleeRva);
+        return false;
+    }
+    if (bytes == kCalleePrologue) {
+        logger::info("verify: ok, call site and callee prologue match");
+    } else if (bytes[0] == kJumpOpcode) {
+        // Another plugin (CutsceneFit, through MinHook) has replaced the start of the
+        // callee with a jump. Calling the callee's address still runs the original through
+        // that plugin's detour.
+        std::int32_t jump = 0;
+        std::memcpy(&jump, bytes.data() + 1, sizeof(jump));
+        const std::uintptr_t jump_target =
+            callee + 5 + static_cast<std::uintptr_t>(static_cast<std::int64_t>(jump));
+        logger::info("verify: ok, the callee +0x{:X} starts with a jump (E9) to 0x{:X}; another plugin "
+                     "has hooked it, the prologue was not compared", kCalleeRva, jump_target);
+    } else {
         logger::info("verify: FAILED, the first {} bytes of +0x{:X} differ from the expected prologue",
                      bytes.size(), kCalleeRva);
         return false;
     }
-    logger::info("verify: ok, call site and callee prologue match");
 
     g_original = reinterpret_cast<OriginalFn>(callee);
     g_original_rel32 = rel;
-    g_letterbox = reinterpret_cast<const volatile std::uint8_t*>(module.base + kLetterboxEnableRva);
+    resolve_letterbox(module);
     if (g_stub == nullptr) {
         g_stub = allocate_stub(g_call_site + 5, module);
         if (g_stub == nullptr) {

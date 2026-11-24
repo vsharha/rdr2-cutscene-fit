@@ -4,23 +4,21 @@
 
 #include <array>
 #include <atomic>
-#include <bit>
+#include <cstring>
 
 namespace zoom::ring {
 
 namespace {
 
+constexpr std::size_t kWords = sizeof(Record) / sizeof(std::uint64_t);
+
 struct Entry {
     std::atomic<std::uint32_t> sequence{0};
-    std::array<std::atomic<std::uint64_t>, 4> words{};
+    std::array<std::atomic<std::uint64_t>, kWords> words{};
 };
 
 std::array<Entry, kCapacity> g_entries;
 std::atomic<std::uint64_t> g_count{0};
-
-std::uint64_t pack(std::uint32_t low, std::uint32_t high) {
-    return static_cast<std::uint64_t>(low) | (static_cast<std::uint64_t>(high) << 32);
-}
 
 }  // namespace
 
@@ -28,20 +26,18 @@ void push(const Record& record) {
     const std::uint64_t frame = g_count.load(std::memory_order_relaxed);
     Entry& entry = g_entries[frame % kCapacity];
 
+    Record numbered = record;
+    numbered.frame = frame;
+    std::array<std::uint64_t, kWords> source{};
+    std::memcpy(source.data(), &numbered, sizeof(numbered));
+
     const std::uint32_t sequence = entry.sequence.load(std::memory_order_relaxed);
     entry.sequence.store(sequence + 1, std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_release);
 
-    const std::uint32_t tail = static_cast<std::uint32_t>(record.flags) |
-                               (static_cast<std::uint32_t>(record.letterbox) << 16) |
-                               (static_cast<std::uint32_t>(record.mode) << 24);
-    entry.words[0].store(frame, std::memory_order_relaxed);
-    entry.words[1].store(record.qpc, std::memory_order_relaxed);
-    entry.words[2].store(pack(std::bit_cast<std::uint32_t>(record.input),
-                              std::bit_cast<std::uint32_t>(record.corrected)),
-                         std::memory_order_relaxed);
-    entry.words[3].store(pack(std::bit_cast<std::uint32_t>(record.output), tail),
-                         std::memory_order_relaxed);
+    for (std::size_t i = 0; i < kWords; ++i) {
+        entry.words[i].store(source[i], std::memory_order_relaxed);
+    }
 
     entry.sequence.store(sequence + 2, std::memory_order_release);
     g_count.store(frame + 1, std::memory_order_release);
@@ -61,8 +57,8 @@ bool read(std::uint64_t frame, Record& out) {
     if ((before & 1U) != 0) {
         return false;
     }
-    std::array<std::uint64_t, 4> w{};
-    for (std::size_t i = 0; i < w.size(); ++i) {
+    std::array<std::uint64_t, kWords> w{};
+    for (std::size_t i = 0; i < kWords; ++i) {
         w[i] = entry.words[i].load(std::memory_order_relaxed);
     }
     std::atomic_thread_fence(std::memory_order_acquire);
@@ -70,15 +66,7 @@ bool read(std::uint64_t frame, Record& out) {
         return false;
     }
 
-    const auto tail = static_cast<std::uint32_t>(w[3] >> 32);
-    out.frame = w[0];
-    out.qpc = w[1];
-    out.input = std::bit_cast<float>(static_cast<std::uint32_t>(w[2]));
-    out.corrected = std::bit_cast<float>(static_cast<std::uint32_t>(w[2] >> 32));
-    out.output = std::bit_cast<float>(static_cast<std::uint32_t>(w[3]));
-    out.flags = static_cast<std::uint16_t>(tail & 0xFFFFU);
-    out.letterbox = static_cast<std::uint8_t>((tail >> 16) & 0xFFU);
-    out.mode = static_cast<std::uint8_t>(tail >> 24);
+    std::memcpy(static_cast<void*>(&out), w.data(), sizeof(out));
     return true;
 }
 
