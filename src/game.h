@@ -24,10 +24,6 @@ struct Addresses {
     std::uintptr_t alpha_store = 0;
     // The alpha byte of the computed letterbox state (see layout.h).
     std::uintptr_t anchor = 0;
-    // The float the native that requests a letterbox stores its target aspect in. While
-    // the request flag is set the update copies it to its working target and ignores
-    // the target at anchor + letterbox::kTargetAspect.
-    std::uintptr_t request_target = 0;
 };
 
 enum class Resolve {

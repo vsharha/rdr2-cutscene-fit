@@ -11,14 +11,10 @@ namespace {
 // Screens within this of 16:9 count as 16:9, so that 1366x768 and similar are left alone.
 constexpr double kEpsilon = 0.01;
 
-// 1.778 and not 16/9: the game replaces a top and bottom bar height of exactly zero
-// with a bar covering the whole screen, and a target of exactly 16/9 gives zero.
-constexpr double kLowestTarget = 1.778;
-
 std::atomic<double> g_aspect{0.0};
 std::atomic<bool> g_applicable{false};
 std::atomic<float> g_zoom_scale{1.0f};
-std::atomic<float> g_target{static_cast<float>(kFilmAspect)};
+std::atomic<float> g_top_bottom{0.0f};
 std::atomic<float> g_side{0.0f};
 #ifdef CUTSCENEFIT_COMPARE
 std::atomic<CompareMode> g_compare_mode{CompareMode::Normal};
@@ -30,7 +26,7 @@ void set_aspect(double aspect) {
     const bool wide = aspect > kReferenceAspect + kEpsilon;
     if (wide) {
         g_zoom_scale.store(static_cast<float>(kReferenceAspect / std::min(aspect, kFilmAspect)));
-        g_target.store(static_cast<float>(std::max(kFilmAspect * kReferenceAspect / aspect, kLowestTarget)));
+        g_top_bottom.store(static_cast<float>(std::max(0.0, 1.0 - aspect / kFilmAspect) * 0.5));
         g_side.store(static_cast<float>(std::max(1.0 - kFilmAspect / aspect, 0.0) * 0.5));
     }
     g_aspect.store(aspect);
@@ -62,8 +58,8 @@ float zoom_scale() {
     return g_zoom_scale.load(std::memory_order_relaxed);
 }
 
-float target_aspect() {
-    return g_target.load(std::memory_order_relaxed);
+float top_bottom_fraction() {
+    return g_top_bottom.load(std::memory_order_relaxed);
 }
 
 float side_fraction() {

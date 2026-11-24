@@ -3,6 +3,7 @@
 
 #include "bars.h"
 
+#include <algorithm>
 #include <atomic>
 #include <windows.h>
 
@@ -19,6 +20,9 @@ namespace {
 constexpr std::size_t kImmediateOffset = 6;
 constexpr std::uint8_t kShownAlpha = 0xFF;
 constexpr std::uint8_t kHiddenAlpha = 0x00;
+// While the letterbox weight is positive the update replaces a computed height of exactly
+// zero with 1.0, a bar covering the whole screen, so the plugin never writes zero.
+constexpr float kMinTopBottom = 6.25e-5f;
 
 using VoidFn = void (*)();
 
@@ -27,42 +31,6 @@ VoidFn g_draw_original = nullptr;
 std::uintptr_t g_anchor = 0;
 std::uintptr_t g_immediate = 0;
 std::atomic<bool> g_hidden{false};
-
-// A float the game writes and the plugin overwrites with its own value for the duration
-// of the update. The game's last value is kept and put back when the plugin stops
-// overriding. Only the update hook and restore() use it.
-struct Override {
-    std::uintptr_t address = 0;
-    float game = 0.0f;
-    float written = 0.0f;
-    bool replaced = false;
-
-    void apply(float wanted) {
-        const float current = load<float>(address);
-        if (current == wanted) {
-            return;
-        }
-        // Anything but our own last value was written by the game.
-        if (!replaced || current != written) {
-            game = current;
-        }
-        store(address, wanted);
-        written = wanted;
-        replaced = true;
-    }
-
-    void restore() {
-        if (replaced && load<float>(address) == written) {
-            store(address, game);
-        }
-        replaced = false;
-    }
-};
-
-// The target aspect used while the letterbox flag is clear, and the one used while it
-// is set.
-Override g_target;
-Override g_request_target;
 
 std::atomic<std::uint32_t> g_letterbox_frames{0};
 std::atomic<std::uint32_t> g_flagged_frames{0};
@@ -84,19 +52,18 @@ bool write_byte(std::uintptr_t address, std::uint8_t value) {
     return true;
 }
 
-// The targets are set before the update runs: it computes the bar height from them in
-// the same call, including on the frame of a camera cut.
 void update_detour() {
-    if (state::applicable()) {
-        const float wanted = state::target_aspect();
-        g_target.apply(wanted);
-        g_request_target.apply(wanted);
-    } else {
-        g_target.restore();
-        g_request_target.restore();
-    }
-
     g_update_original();
+
+    // The game's box aspect snaps to preset ratios, so its calculated height is wrong
+    // on some ultrawide screens. Write the screen-based height into the computed copy.
+    if (state::applicable() && load<std::uint8_t>(g_anchor + letterbox::kEnable) != 0) {
+        const float weight = load<float>(g_anchor + letterbox::kWeight);
+        if (weight > 0.0f) {
+            const float height = std::max(state::top_bottom_fraction(), kMinTopBottom) * weight;
+            store(g_anchor + letterbox::kTopBottom, height);
+        }
+    }
 
     if (load<float>(g_anchor + letterbox::kWeight) > 0.0f) {
         g_letterbox_frames.fetch_add(1, std::memory_order_relaxed);
@@ -139,8 +106,6 @@ bool create_hook(const char* name, std::uintptr_t target, void* detour, VoidFn& 
 bool create(const game::Addresses& addresses) {
     g_anchor = addresses.anchor;
     g_immediate = addresses.alpha_store + kImmediateOffset;
-    g_target.address = addresses.anchor + letterbox::kTargetAspect;
-    g_request_target.address = addresses.request_target;
     return create_hook("letterbox update", addresses.update, reinterpret_cast<void*>(&update_detour),
                        g_update_original) &&
            create_hook("letterbox drawing", addresses.draw, reinterpret_cast<void*>(&draw_detour),
@@ -165,8 +130,6 @@ void restore() {
     if (g_immediate != 0 && g_hidden.load() && write_byte(g_immediate, kShownAlpha)) {
         g_hidden.store(false);
     }
-    g_target.restore();
-    g_request_target.restore();
 }
 
 Counters counters() {

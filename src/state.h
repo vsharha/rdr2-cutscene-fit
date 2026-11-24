@@ -31,9 +31,8 @@ inline bool force_zoom() { return false; }
 // k in vFOV' = 2 * atan(k * tan(vFOV / 2)).
 float zoom_scale();
 
-// Value for the letterbox's target aspect (layout.h) that makes the game's top and
-// bottom bars the size that frames the zoomed picture.
-float target_aspect();
+// Height of each top and bottom bar as a fraction of the screen height.
+float top_bottom_fraction();
 
 // Width of each side bar as a fraction of the screen width, before the letterbox
 // weight is applied.

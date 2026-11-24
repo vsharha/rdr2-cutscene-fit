@@ -18,6 +18,7 @@ constexpr std::ptrdiff_t kFlag = -0xA;           // u8, set while a caller reque
 constexpr std::ptrdiff_t kWeight = -8;           // float, 0 in gameplay, 1 fully letterboxed
 constexpr std::ptrdiff_t kAlpha = 0;             // u8
 constexpr std::ptrdiff_t kEnable = 1;            // u8
+constexpr std::ptrdiff_t kTopBottom = 4;         // float, computed height of each top and bottom bar
 
 // Drawn copy.
 constexpr std::ptrdiff_t kDrawnAlpha = 0x20;     // u8, the renderer scissors only while 255
@@ -26,13 +27,6 @@ constexpr std::ptrdiff_t kDrawnTopBottom = 0x24; // float, height of each top an
 constexpr std::ptrdiff_t kDrawnSideWidth = 0x28; // float, width of each side bar
 constexpr std::ptrdiff_t kDrawnSideOn = 0x2C;    // u8
 constexpr std::ptrdiff_t kDrawnTopBottomOn = 0x2D;  // u8
-
-// float. The update derives the top and bottom bar height from it as
-//   (1 - min(box aspect, 16/9) / target) * 0.5 * weight
-// when the flag at kFlag is clear. When the flag is set it instead copies the target
-// stored by the native that requests the letterbox (Addresses::request_target) and uses
-// that.
-constexpr std::ptrdiff_t kTargetAspect = 0x38;
 
 }  // namespace letterbox
 

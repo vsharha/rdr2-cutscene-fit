@@ -17,14 +17,13 @@ bool create(const game::Addresses& addresses);
 void set_hidden(bool hidden);
 bool hidden();
 
-// Puts back everything the plugin changed: the alpha immediate and the target aspects.
+// Puts back the alpha immediate changed by the plugin.
 void restore();
 
 struct Counters {
     // Frames the update ran with a letterbox weight above zero.
     std::uint32_t letterbox_frames = 0;
-    // Of those, frames on which the update found the letterbox flag set and so took
-    // its target from the request native's variable.
+    // Of those, frames on which the update found the letterbox flag set.
     std::uint32_t flagged_frames = 0;
 };
 Counters counters();

@@ -4,7 +4,6 @@
 #include "game.h"
 
 #include <cstddef>
-#include <optional>
 #include <vector>
 
 #include "common/log.h"
@@ -42,13 +41,6 @@ constexpr std::size_t kCompareLength = 7;
 // `mov byte ptr [rip + disp32], 0FFh`: the alpha store at the end of the update.
 constexpr Signature kAlphaStore{"alpha store", "C6 05 ? ? ? ? FF 0F 28 74 24 60", 0x320545};
 constexpr std::size_t kAlphaStoreLength = 7;
-
-// The native that requests a letterbox: `movss [target], xmm2` then
-// `mov byte ptr [flag], 1`. Both operands are RIP-relative.
-constexpr Signature kRequest{"letterbox request", "F3 0F 11 15 ? ? ? ? C6 05 ? ? ? ? 01 89 0D", 0x31992C};
-constexpr std::size_t kRequestStoreLength = 8;
-constexpr std::size_t kRequestFlagOffset = 8;
-constexpr std::size_t kRequestFlagLength = 7;
 
 struct Match {
     std::uintptr_t address = 0;
@@ -104,12 +96,11 @@ Resolve resolve(const mem::Region& module, Addresses& out, bool verbose) {
     const Match update = find(regions, module, kUpdate, verbose);
     const Match draw = find(regions, module, kDraw, verbose);
     const Match store = find(regions, module, kAlphaStore, verbose);
-    const Match request = find(regions, module, kRequest, verbose);
 
-    if (zoom.ambiguous || update.ambiguous || draw.ambiguous || store.ambiguous || request.ambiguous) {
+    if (zoom.ambiguous || update.ambiguous || draw.ambiguous || store.ambiguous) {
         return Resolve::Failed;
     }
-    if (zoom.missing || update.missing || draw.missing || store.missing || request.missing) {
+    if (zoom.missing || update.missing || draw.missing || store.missing) {
         if (store.missing) {
             logger::info("pattern {}: another plugin may have patched the alpha immediate", kAlphaStore.name);
         }
@@ -128,22 +119,11 @@ Resolve resolve(const mem::Region& module, Addresses& out, bool verbose) {
         return Resolve::Failed;
     }
 
-    const std::uintptr_t flag = rip_target(request.address + kRequestFlagOffset, 2, kRequestFlagLength);
-    const std::uintptr_t request_target = rip_target(request.address, 4, kRequestStoreLength);
-    logger::info("letterbox request: sets the flag at +0x{:X}, stores its target aspect at +0x{:X}",
-                 flag - module.base, request_target - module.base);
-    if (flag != anchor + letterbox::kFlag) {
-        logger::info("the request native sets its flag at anchor {:+#x}, expected {:+#x}",
-                     static_cast<std::int64_t>(flag - anchor), static_cast<std::int64_t>(letterbox::kFlag));
-        return Resolve::Failed;
-    }
-
     out.zoom = zoom.address;
     out.update = update.address;
     out.draw = draw.address;
     out.alpha_store = store.address;
     out.anchor = anchor;
-    out.request_target = request_target;
     return Resolve::Found;
 }
 

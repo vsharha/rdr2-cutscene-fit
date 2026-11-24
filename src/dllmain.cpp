@@ -109,9 +109,9 @@ public:
 
         const std::string size = m->width > 0 ? std::format(" {}x{}", m->width, m->height) : "";
         if (state::applicable()) {
-            logger::info("aspect {:.4f} ({}{}), zoom k {:.5f}, top/bottom target {:.5f}, side bars "
+            logger::info("aspect {:.4f} ({}{}), zoom k {:.5f}, top/bottom fraction {:.5f}, side bars "
                          "{:.5f} of the width each",
-                         m->aspect, m->source, size, state::zoom_scale(), state::target_aspect(),
+                         m->aspect, m->source, size, state::zoom_scale(), state::top_bottom_fraction(),
                          state::side_fraction());
         } else {
             logger::info("aspect {:.4f} ({}{}): not wider than 16:9, nothing is changed", m->aspect,
@@ -158,8 +158,7 @@ public:
         if (c.letterbox_frames == seen_.letterbox_frames) {
             return;
         }
-        logger::info("letterbox: {} frame(s) so far, {} of them with the letterbox flag set (the target "
-                     "aspect is written to both variables the update can read, so both are covered)",
+        logger::info("letterbox: {} frame(s) so far, {} of them with the letterbox flag set",
                      c.letterbox_frames, c.flagged_frames);
         seen_ = c;
         last_ = now;
