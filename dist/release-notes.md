@@ -10,8 +10,8 @@ Tested on `RDR2.exe` 1.0.1491.50 at 3440x1440, 3440x1200 and 2880x1440.
 - Red Dead Redemption 2 on PC, story mode only, version 1.0.1491.50. On other
   versions the plugin finds its code by byte patterns and stays inactive if any
   of them does not match exactly once.
-- An ASI loader, such as the one in Script Hook RDR2 or the `dinput8.dll` of the
-  Mod Loader mod on Nexus Mods. Script Hook itself is not needed.
+- An ASI loader, such as the one in Script Hook RDR2 or Lenny's Mod Loader from
+  rdr2mods.com. Script Hook itself is not needed.
 
 The plugin does not detect Red Dead Online. Remove it before playing Online.
 

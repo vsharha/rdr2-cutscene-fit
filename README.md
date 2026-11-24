@@ -63,8 +63,9 @@ renders behind the side bars.
   versions the plugin finds its code by byte patterns and stays inactive if
   any of them does not match exactly once.
 - An ASI loader, such as the one in
-  [Script Hook RDR2](http://www.dev-c.com/rdr2/scripthookrdr2/) or the `dinput8.dll`
-  of the Mod Loader mod on Nexus Mods. Script Hook itself is not needed.
+  [Script Hook RDR2](http://www.dev-c.com/rdr2/scripthookrdr2/) or
+  [Lenny's Mod Loader](https://www.rdr2mods.com/downloads/rdr2/tools/76-lennys-mod-loader-rdr/)
+  from rdr2mods.com. Script Hook itself is not needed.
 
 The plugin does not detect Red Dead Online. Remove it before playing Online.
 
