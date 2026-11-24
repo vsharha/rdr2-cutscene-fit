@@ -15,6 +15,9 @@ game's own bars. Because they are the game's bars, resized, they still slide in
 and out with the game's own animation at the start and end of a cutscene. A key
 toggles those bars off to show the extra scene the game renders behind them.
 
+Image quality is unchanged. The game renders every frame at full resolution
+with the narrower field of view, so nothing is upscaled.
+
 The same applies to the in-game cinematic camera, which uses the same bars.
 
 It works at any aspect ratio. The plugin computes the frame and the bars from
