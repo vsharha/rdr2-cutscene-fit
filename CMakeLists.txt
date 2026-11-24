@@ -30,5 +30,6 @@ add_subdirectory(common)
 
 # Research tools; each builds its own .asi.
 add_subdirectory(tools/dump)
+add_subdirectory(tools/watch)
 
 # The plugin itself goes here as add_subdirectory(src) once it exists.
