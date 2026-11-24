@@ -27,8 +27,32 @@ correctly, and nothing changes.
 | 21:9   | full height | about 28 px each side at 3440x1440 |
 | 32:9   | full height | wide, at the sides                 |
 
-**Status:** works in cutscenes on `RDR2.exe` 1.0.1491.50, tested at 3440x1440
-(21:9) and 2880x1440 (18:9). Camera blends are not tested yet.
+**Status:** works in cutscenes on `RDR2.exe` 1.0.1491.50, including camera
+blends, tested at 3440x1440 (21:9), 3440x1200 (2.87:1) and 2880x1440 (18:9).
+
+## Comparison
+
+The same cutscene frame at 3440x1200 (2.87:1), taken with the
+[comparison build](#comparison-build).
+
+The game as shipped: a 16:9 box cropped to 2.35:1, with bars on all four sides.
+
+![The game as shipped](images/1-game.jpg)
+
+Bars removed, as other mods do: the whole screen is used, but the camera is
+unchanged, so the shot shows more of the scene than it was composed for.
+
+![Bars removed](images/2-bars_removed.jpg)
+
+CutsceneFit: the 2.35:1 shot from the first image, filling the full height, with
+the game's bars at the sides.
+
+![CutsceneFit](images/3-fit.jpg)
+
+CutsceneFit with the bars toggled off: the same framing, with the scene the game
+renders behind the side bars.
+
+![CutsceneFit with the bars toggled off](images/4-fit_no_bars.jpg)
 
 ## Requirements
 
@@ -85,25 +109,39 @@ cmake --build build
 The `.asi` files are written to `build/bin/`. With MSVC, configure with
 `cmake -B build -A x64` and build with `cmake --build build --config Release`.
 
-For a screenshot comparison build, use a separate directory:
+The plugin is in [`src/`](src/) and shared code in [`common/`](common/). Each
+research tool is in its own directory under [`tools/`](tools/) and builds its own
+`.asi`. The tools are for finding game code and are not needed to use the plugin.
+
+### Comparison build
+
+Takes the screenshots in [Comparison](#comparison). Build it in a separate
+directory:
 
 ```sh
 cmake -B build-compare -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake -DCMAKE_BUILD_TYPE=Release -DCUTSCENEFIT_COMPARE=ON
 cmake --build build-compare
 ```
 
-It writes the same `CutsceneFit.asi` name. In `[CutsceneFit]`, `compare_key`
-starts or cancels the sequence (default `F11`), `compare_hold_ms` sets the
-state hold when no capture script responds (default `1500`), and
-`compare_freeze=1` pauses the game while cycling (default `1`). Pausing requires
-Script Hook RDR2. Without it, the sequence still runs without pausing.
-On Linux, run `tools/compare/capture.sh <game-folder> <output-directory>` while
-the game runs inside gamescope. It captures each handshake state and returns an
-acknowledgement to the plugin.
+It writes the same `CutsceneFit.asi` name. A key switches through four states
+of the same frame: the game as shipped, bars removed, CutsceneFit, and
+CutsceneFit with the bars toggled off. For each state it unpauses the game for
+three frames, so the game updates its bars, then pauses it again while the
+screenshot is taken. Pausing requires Script Hook RDR2; without it the sequence
+runs without pausing.
 
-The plugin is in [`src/`](src/) and shared code in [`common/`](common/). Each
-research tool is in its own directory under [`tools/`](tools/) and builds its own
-`.asi`. The tools are for finding game code and are not needed to use the plugin.
+On Linux, run the game inside gamescope and start
+`tools/compare/capture.sh <game-folder> <output-directory>` before pressing the
+key. The script takes a gamescope screenshot of each state and tells the plugin
+when to move on.
+
+Settings in `[CutsceneFit]`, in this build only:
+
+| Key               | Meaning                                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compare_key`     | Starts or cancels the sequence. Default `F11`.                                                                                                    |
+| `compare_hold_ms` | How long a state waits for the capture script's first answer. Default `1500`; set `10000` when using the script, because saving a screenshot can take longer. |
+| `compare_freeze`  | `1` pauses the game during the sequence, `0` does not. Default `1`.                                                                               |
 
 ### dump.asi
 
