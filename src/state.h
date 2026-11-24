@@ -1,0 +1,31 @@
+// Copyright (c) 2026 Viktor Sharha
+
+#pragma once
+
+// The screen aspect and the values derived from it. The worker thread sets it; the
+// game's threads read the derived values without locks.
+namespace state {
+
+constexpr double kReferenceAspect = 16.0 / 9.0;
+// The aspect of the cutscene frame.
+constexpr double kFilmAspect = 2.35;
+
+void set_aspect(double aspect);
+double aspect();
+
+// False until an aspect is set, and while the screen is no wider than 16:9. The
+// plugin changes nothing in the game then.
+bool applicable();
+
+// k in vFOV' = 2 * atan(k * tan(vFOV / 2)).
+float zoom_scale();
+
+// Value for the letterbox's target aspect (layout.h) that makes the game's top and
+// bottom bars the size that frames the zoomed picture.
+float target_aspect();
+
+// Width of each side bar as a fraction of the screen width, before the letterbox
+// weight is applied.
+float side_fraction();
+
+}  // namespace state

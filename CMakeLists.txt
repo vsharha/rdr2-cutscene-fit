@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(CutsceneFit LANGUAGES CXX)
+project(CutsceneFit LANGUAGES C CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "Build for Windows: pass -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake.")
@@ -33,4 +33,5 @@ add_subdirectory(tools/dump)
 add_subdirectory(tools/watch)
 add_subdirectory(tools/zoom)
 
-# The plugin itself goes here as add_subdirectory(src) once it exists.
+# The plugin itself.
+add_subdirectory(src)
