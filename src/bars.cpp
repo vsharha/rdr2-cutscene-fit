@@ -10,6 +10,7 @@
 #include <MinHook.h>
 
 #include "common/log.h"
+#include "inflight.h"
 #include "layout.h"
 #include "state.h"
 
@@ -62,6 +63,7 @@ void store_shown_alpha() {
 }
 
 void update_detour() {
+    [[maybe_unused]] const inflight::Guard guard;
     g_update_original();
 
     // The instruction patch makes the computed alpha zero from the moment the game
@@ -96,6 +98,7 @@ void update_detour() {
 // reads an opaque bar, including on a frame where the update did not run (paused, or
 // the first frame after unpausing).
 void draw_detour() {
+    [[maybe_unused]] const inflight::Guard guard;
 #ifdef CUTSCENEFIT_COMPARE
     g_drawn_frames.fetch_add(1, std::memory_order_relaxed);
 #endif

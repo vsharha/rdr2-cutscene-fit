@@ -48,6 +48,9 @@
 #include "common/mem.h"
 #include "common/paths.h"
 #include "game.h"
+#ifdef CUTSCENEFIT_RELOAD
+#include "inflight.h"
+#endif
 #include "screen.h"
 #include "settings.h"
 #include "state.h"
@@ -68,6 +71,15 @@ constexpr int kWindowMisses = 10;
 
 std::atomic<bool> g_stop{false};
 std::atomic<bool> g_hooks_created{false};
+
+#ifdef CUTSCENEFIT_RELOAD
+// Set by cutscenefit_start. The loaded file is a temporary copy, so its own path names
+// neither the ini nor the log.
+HMODULE g_self = nullptr;
+std::filesystem::path g_asi;
+bool g_append = false;
+HANDLE g_thread = nullptr;
+#endif
 
 bool pressed(int key, bool& was_down) {
     const bool down = (GetAsyncKeyState(key) & 0x8000) != 0;
@@ -182,6 +194,10 @@ void shutdown() {
     bars::restore();
     if (g_hooks_created.exchange(false)) {
         MH_DisableHook(MH_ALL_HOOKS);
+#ifdef CUTSCENEFIT_RELOAD
+        // MH_Uninitialize frees the trampolines a game thread may still be running.
+        inflight::drain();
+#endif
         MH_Uninitialize();
     }
 }
@@ -232,14 +248,20 @@ bool install(const mem::Region& module, const settings::Settings& s) {
 }
 
 DWORD WINAPI run(LPVOID parameter) {
-    const auto self = static_cast<HMODULE>(parameter);
+    [[maybe_unused]] const auto self = static_cast<HMODULE>(parameter);
     try {
+#ifdef CUTSCENEFIT_RELOAD
+        const std::filesystem::path asi = g_asi;
+        const bool append = g_append;
+#else
         const std::filesystem::path asi = paths::module_path(self);
+        const bool append = false;
+#endif
         const std::wstring ini = std::filesystem::path(asi).replace_extension(L".ini").wstring();
         const settings::Settings s = settings::read(ini);
 
         logger::set_enabled(s.log);
-        logger::open(paths::module_path(self));
+        logger::open(asi, append);
         for (const std::string& warning : s.warnings) {
             logger::info("settings: {}", warning);
         }
@@ -310,12 +332,54 @@ DWORD WINAPI run(LPVOID parameter) {
 
 }  // namespace
 
+#ifdef CUTSCENEFIT_RELOAD
+// The reload loader (tools/reload) calls these instead of the plugin starting itself
+// when it is loaded. `asi` is the path the ini and the log are named after. A nonzero
+// `reload` appends to the log instead of truncating it. Returns nonzero if the worker
+// thread started.
+extern "C" __declspec(dllexport) int cutscenefit_start(const wchar_t* asi, int reload) {
+    if (g_thread != nullptr || asi == nullptr) {
+        return 0;
+    }
+    try {
+        g_asi = asi;
+    } catch (const std::exception&) {
+        return 0;
+    }
+    g_append = reload != 0;
+    g_thread = CreateThread(nullptr, 0, run, g_self, 0, nullptr);
+    return g_thread != nullptr ? 1 : 0;
+}
+
+// Stops the worker thread, removes every hook and patch, and waits until no game
+// thread is inside a hook. Afterwards the DLL can be freed.
+extern "C" __declspec(dllexport) void cutscenefit_stop() {
+    g_stop.store(true);
+#ifdef CUTSCENEFIT_COMPARE
+    // A running sequence watches only its own cancel flag, so it must be cancelled
+    // before the worker thread can be waited for.
+    compare::shutdown();
+#endif
+    if (g_thread != nullptr) {
+        WaitForSingleObject(g_thread, INFINITE);
+        CloseHandle(g_thread);
+        g_thread = nullptr;
+    }
+    shutdown();
+    logger::info("stopped for a reload");
+}
+#endif
+
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(instance);
+#ifdef CUTSCENEFIT_RELOAD
+        g_self = instance;
+#else
         if (HANDLE thread = CreateThread(nullptr, 0, run, instance, 0, nullptr)) {
             CloseHandle(thread);
         }
+#endif
     } else if (reason == DLL_PROCESS_DETACH && reserved == nullptr) {
         g_stop.store(true);
         shutdown();

@@ -9,6 +9,7 @@
 #include <MinHook.h>
 
 #include "common/log.h"
+#include "inflight.h"
 #include "layout.h"
 #include "state.h"
 
@@ -71,6 +72,7 @@ void set_active(bool active) {
 
 // Runs on a game thread once per frame: no allocation, logging or locks.
 char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_t* owner) {
+    [[maybe_unused]] const inflight::Guard guard;
     if (frame == nullptr || !state::applicable()) {
         set_active(false);
         g_leaving.store(false, std::memory_order_relaxed);
