@@ -39,6 +39,11 @@ add_subdirectory(tools/zoom)
 # The plugin itself.
 add_subdirectory(src)
 
+# Loads and reloads a reload build of the plugin while the game runs.
+if(CUTSCENEFIT_RELOAD)
+    add_subdirectory(tools/reload)
+endif()
+
 # The release zip holds the plugin, a sample settings file and the licences, at the
 # zip root so that it extracts straight into the game folder. The research tools
 # have no install rules, and a reload build has no release zip.
