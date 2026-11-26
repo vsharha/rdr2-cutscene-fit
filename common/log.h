@@ -8,7 +8,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <windows.h>
 
 // Not `log`: <math.h> already declares ::log.
 namespace logger {
@@ -16,11 +15,11 @@ namespace logger {
 // While disabled, open() and write() do nothing. Enabled by default.
 void set_enabled(bool enabled);
 
-// Truncates and opens "<asi name>.log" next to the .asi at `self`. The game folder
-// can be read-only for normal users, so on failure it uses
+// Opens "<asi name>.log" next to the .asi at `asi`, truncated unless `append`. The
+// game folder can be read-only for normal users, so on failure it uses
 // %LOCALAPPDATA%\CutsceneFit instead. Every line is also sent to OutputDebugString.
 // Returns false if no location was writable.
-bool open(HMODULE self);
+bool open(const std::filesystem::path& asi, bool append = false);
 
 // The directory holding the log, empty if open() failed.
 std::filesystem::path directory();

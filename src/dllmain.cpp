@@ -239,7 +239,7 @@ DWORD WINAPI run(LPVOID parameter) {
         const settings::Settings s = settings::read(ini);
 
         logger::set_enabled(s.log);
-        logger::open(self);
+        logger::open(paths::module_path(self));
         for (const std::string& warning : s.warnings) {
             logger::info("settings: {}", warning);
         }

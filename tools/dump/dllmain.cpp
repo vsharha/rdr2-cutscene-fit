@@ -69,7 +69,7 @@ void log_module(const mem::Region& module) {
 DWORD WINAPI run(LPVOID parameter) {
     const auto self = static_cast<HMODULE>(parameter);
     try {
-        logger::open(self);
+        logger::open(paths::module_path(self));
 
         const std::filesystem::path asi = paths::module_path(self);
         const std::wstring ini = std::filesystem::path(asi).replace_extension(L".ini").wstring();

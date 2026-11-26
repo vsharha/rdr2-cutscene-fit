@@ -6,6 +6,7 @@
 #include <atomic>
 #include <fstream>
 #include <mutex>
+#include <windows.h>
 
 #include "common/paths.h"
 
@@ -23,11 +24,10 @@ void set_enabled(bool enabled) {
     g_enabled.store(enabled);
 }
 
-bool open(HMODULE self) {
+bool open(const std::filesystem::path& asi, bool append) {
     if (!g_enabled.load()) {
         return false;
     }
-    const std::filesystem::path asi = paths::module_path(self);
     const std::filesystem::path name = asi.stem().concat(L".log");
 
     std::lock_guard lock(g_mutex);
@@ -35,7 +35,7 @@ bool open(HMODULE self) {
         if (directory.empty()) {
             continue;
         }
-        g_file.open(directory / name, std::ios::out | std::ios::trunc);
+        g_file.open(directory / name, std::ios::out | (append ? std::ios::app : std::ios::trunc));
         if (g_file.is_open()) {
             g_directory = directory;
             return true;
