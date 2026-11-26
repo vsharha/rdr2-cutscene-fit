@@ -131,9 +131,74 @@ cmake --build build --target package
 It writes `build/CutsceneFit-<version>.zip`. With MSVC, configure with
 `cmake -B build -A x64` and build with `cmake --build build --config Release`.
 
-The plugin is in [`src/`](src/) and shared code in [`common/`](common/). Each
-research tool is in its own directory under [`tools/`](tools/) and builds its own
-`.asi`. The tools are for finding game code and are not needed to use the plugin.
+The plugin is in [`src/`](src/) and shared code in [`common/`](common/). Under
+[`tools/`](tools/), `dump`, `watch` and `zoom` are research tools for finding game
+code, each building its own `.asi`. `compare` holds the capture script of the
+[comparison build](#comparison-build) and `reload` the loader of the
+[reload build](#reload-build). None of them is needed to use the plugin. Tests
+that run on the build machine are in [`tests/`](tests/).
+
+### Reload build
+
+Replaces the plugin while the game runs, so a change needs a rebuild instead of
+a restart of the game. Build it in a separate directory:
+
+```sh
+cmake -B build-reload -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake -DCMAKE_BUILD_TYPE=Release -DCUTSCENEFIT_RELOAD=ON
+cmake --build build-reload
+```
+
+It writes two files to `build-reload/bin/`:
+
+- `CutsceneFit.dll`, the plugin. It is not named `.asi`, so an ASI loader never
+  loads it on its own.
+- `CutsceneFitReload.asi`, which loads and reloads it.
+
+Copy only `CutsceneFitReload.asi` into the game folder, and take
+`CutsceneFit.asi` out of it so that the plugin is not loaded twice. The plugin
+still reads `CutsceneFit.ini` and writes `CutsceneFit.log` in the game folder.
+After the first load it appends to the log instead of starting it again.
+
+At game start `CutsceneFitReload.asi` loads `CutsceneFit.dll` from the build
+directory; under Wine and Proton it finds that directory on the `Z:` drive. After
+each `cmake --build build-reload` it reloads the plugin once the file has been
+unchanged for half a second, and F9 reloads it at any time. A reload stops the
+plugin, which removes its hooks and its patch and waits until no game thread is
+inside a hook. The loader then unloads it and loads a fresh copy, which searches
+for its patterns as at game start. The copies are made in
+`%TEMP%\CutsceneFitReload` so that the build can overwrite the original. The
+loader writes `CutsceneFitReload.log` next to itself.
+
+A reload starts the plugin from its settings again, so the bars are shown or
+hidden as `bars` in the ini says. A change to the loader itself still needs a
+restart of the game. With `-DCUTSCENEFIT_COMPARE=ON` as well, the comparison
+build's Script Hook script is unregistered on each reload.
+
+Settings in `CutsceneFitReload.ini` next to `CutsceneFitReload.asi`, section
+`[reload]`:
+
+| Key       | Meaning                                                                                                        |
+| --------- | -------------------------------------------------------------------------------------------------------------- |
+| `payload` | Path of `CutsceneFit.dll`. Default: the file this build writes.                                                |
+| `key`     | Reloads the plugin. A key name or code, as for `toggle_key`. Default `F9`.                                     |
+| `watch`   | `1` reloads when `payload` changes, `0` only on the key. Default `1`.                                          |
+
+### Tests
+
+The tests build with the host compiler, not MinGW, from their own directory:
+
+```sh
+cmake -S tests -B build-tests
+cmake --build build-tests
+ctest --test-dir build-tests --output-on-failure
+```
+
+`signatures` runs the plugin's pattern search on `dumps/RDR2.dump.exe`, an image
+written by [dump.asi](#dumpasi). It fails unless every pattern matches exactly
+once, at the offset recorded for 1.0.1491.50, and the matches agree with the
+letterbox layout in [`src/layout.h`](src/layout.h). Without the dump it is
+reported as skipped. Configure with `-DCUTSCENEFIT_DUMP=<path>` to use a dump
+elsewhere.
 
 ### Comparison build
 
