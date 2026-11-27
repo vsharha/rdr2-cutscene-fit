@@ -5,16 +5,12 @@ screen as it can, and fills what is left with the game's own bars.
 
 Tested on `RDR2.exe` 1.0.1491.50 at 3440x1440, 3440x1200 and 2880x1440.
 
-## Changes in 1.0.3
+## Changes in 1.0.4
 
-- Menus that the game boxes to 16:9, such as the general store's outfit
-  preview, are no longer zoomed, and keep the game's own side bars. The zoom
-  had cut off Arthur's head and feet there.
-- The game's videos keep the game's own side bars instead of the plugin's
-  narrow ones, which had shown streaks beside the video.
-- A cutscene that follows a video is now zoomed from the moment the video
-  ends. Before, the zoom waited for a camera cut, and some of those cutscenes
-  have none.
+- New setting `menu_frame` for the side bars in menus that the game boxes to
+  16:9, such as shops. `cinematic`, the default, gives them the same side bars
+  as cutscenes, framing 2.35:1. `original` keeps the game's own, framing 16:9,
+  as 1.0.3 did. `off` removes them. Menus are never zoomed.
 
 ## Requirements
 
