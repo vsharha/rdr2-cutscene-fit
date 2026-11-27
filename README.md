@@ -20,7 +20,9 @@ with the narrower field of view, so nothing is upscaled.
 
 The same applies to the in-game cinematic camera, which uses the same bars.
 Menus that the game boxes to 16:9 with side bars only, such as the general
-store's outfit preview, are left as the game draws them.
+store's outfit preview, are left as the game draws them, and so are the
+game's videos, which are 16:9 pictures with the game's own bars at the sides.
+When a video gives way to a cutscene, the zoom starts as the video ends.
 
 It works at any aspect ratio. The plugin computes the frame and the bars from
 the game window's measured aspect, so screens between the common sizes below
@@ -38,9 +40,15 @@ hides the game's bars.
 **Status:** works in cutscenes and the cinematic camera on `RDR2.exe`
 1.0.1491.50, including camera blends, tested at 3440x1440 (21:9), 3440x1200 (2.87:1) and 2880x1440 (18:9).
 
-**Known limitation:** in the scene after the intro video, the game's wide side
-bars show for about a second before the plugin's narrow bars suddenly replace
-them. The game draws those first bars in a way the plugin does not change.
+**Known limitations:**
+
+- When a video ends and a cutscene begins, the game's own bars show for about
+  a second before the plugin's narrow bars suddenly replace them. The game
+  draws those first bars in a way the plugin does not change.
+- The photograph effect that ends some cutscenes, before a chapter screen, is
+  drawn by the game into a 16:9 box. Beyond its sides the game repeats the
+  effect's edge column, which shows as horizontal streaks between the box and
+  the plugin's narrow bars.
 
 ## Comparison
 

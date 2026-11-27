@@ -33,6 +33,7 @@ add_asi(CutsceneFit
     screen.cpp
     settings.cpp
     state.cpp
+    video.cpp
     zoom.cpp)
 if(CUTSCENEFIT_COMPARE)
     target_sources(CutsceneFit PRIVATE compare.cpp)

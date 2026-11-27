@@ -13,6 +13,7 @@
 #include "inflight.h"
 #include "layout.h"
 #include "state.h"
+#include "video.h"
 
 namespace bars {
 namespace {
@@ -53,12 +54,13 @@ bool write_byte(std::uintptr_t address, std::uint8_t value) {
     return true;
 }
 
-// Whether the letterbox is a cutscene's, with top and bottom bars. A letterbox without
-// them is a 16:9 box around a menu, whose side bars are left at the game's size. The
-// drawn byte is the game's value from the latest drawing; the plugin never writes it.
+// Whether the letterbox is a cutscene's, with top and bottom bars and no video playing.
+// A letterbox without top and bottom bars is a 16:9 box around a menu, and a video is a
+// 16:9 picture; in both the game's own side bars cover what lies outside the 16:9 box.
+// The drawn byte is the game's value from the latest drawing; the plugin never writes it.
 bool cutscene_letterbox(std::ptrdiff_t enable) {
     return load<std::uint8_t>(g_anchor + enable) != 0 &&
-           load<std::uint8_t>(g_anchor + letterbox::kDrawnTopBottomOn) != 0;
+           load<std::uint8_t>(g_anchor + letterbox::kDrawnTopBottomOn) != 0 && !video::playing();
 }
 
 // Puts the alpha the game would have stored into both copies, without waiting for the

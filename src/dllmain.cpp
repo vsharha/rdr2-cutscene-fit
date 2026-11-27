@@ -56,6 +56,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "state.h"
+#include "video.h"
 #include "zoom.h"
 
 namespace {
@@ -237,6 +238,9 @@ bool install(const mem::Region& module, const settings::Settings& s) {
         shutdown();
         logger::info("not installing any hook");
         return false;
+    }
+    if (!video::create()) {
+        logger::info("video hooks not installed; the plugin works without them");
     }
     if (const MH_STATUS status = MH_EnableHook(MH_ALL_HOOKS); status != MH_OK) {
         logger::info("MH_EnableHook failed: {}", MH_StatusToString(status));

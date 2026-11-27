@@ -12,6 +12,7 @@
 #include "inflight.h"
 #include "layout.h"
 #include "state.h"
+#include "video.h"
 
 namespace zoom {
 
@@ -49,6 +50,7 @@ std::atomic<bool> g_active{false};
 std::atomic<std::uint32_t> g_transitions{0};
 std::atomic<std::uint32_t> g_slide_out_exits{0};
 std::atomic<std::uint32_t> g_ease_outs{0};
+std::atomic<bool> g_previous_video{false};
 // Set once the letterbox weight has started falling; cleared when the letterbox is gone.
 std::atomic<bool> g_leaving{false};
 // Set while the zoom is easing out with the bars; implies g_leaving and g_active.
@@ -84,11 +86,16 @@ char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
     }
 
     // A letterbox without top and bottom bars is a 16:9 box around a menu, which the
-    // game does not crop, so it is not zoomed.
+    // game does not crop, and a video is a fixed 16:9 picture; neither is zoomed.
+    const bool video = video::playing();
     const bool letterbox =
-        load<std::uint8_t>(g_enable) != 0 && load<std::uint8_t>(g_top_bottom_on) != 0;
+        load<std::uint8_t>(g_enable) != 0 && load<std::uint8_t>(g_top_bottom_on) != 0 && !video;
     const float weight = load<float>(g_weight);
+    // The end of a video replaces the whole picture, which hides the change of field of
+    // view as a camera cut does.
+    const bool video_ended = g_previous_video.exchange(video, std::memory_order_relaxed) && !video;
     const bool cut =
+        video_ended ||
         (load<std::uint16_t>(reinterpret_cast<std::uintptr_t>(frame) + kFlagsOffset) & kCutFlag) != 0;
     const bool previous_cut = g_previous_cut.exchange(cut, std::memory_order_relaxed);
     bool active = g_active.load(std::memory_order_relaxed);
