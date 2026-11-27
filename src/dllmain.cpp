@@ -16,6 +16,8 @@
 //                code such as 0x23. Default: End.
 //   zoom_start   cut: the field of view is narrowed from the first camera cut after the
 //                letterbox appears. letterbox: from when the letterbox is enabled.
+//                Only a letterbox with top and bottom bars counts; one with side bars
+//                only boxes a menu to 16:9 and is left to the game.
 //                Either way the zoom eases out as the bars slide out, or ends at once
 //                if a camera cut came with them. Default: cut.
 //   aspect       screen aspect ratio. 0 measures the game window's client area once a

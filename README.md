@@ -19,6 +19,8 @@ Image quality is unchanged. The game renders every frame at full resolution
 with the narrower field of view, so nothing is upscaled.
 
 The same applies to the in-game cinematic camera, which uses the same bars.
+Menus that the game boxes to 16:9 with side bars only, such as the general
+store's outfit preview, are left as the game draws them.
 
 It works at any aspect ratio. The plugin computes the frame and the bars from
 the game window's measured aspect, so screens between the common sizes below
@@ -107,7 +109,7 @@ log=1
 | `enabled`    | `1` installs the plugin's hooks, `0` loads it and does nothing.                                                                                                          |
 | `bars`       | `1` shows the bars when the game starts, `0` hides them, on any screen.                                                                                                           |
 | `toggle_key` | Key that shows or hides the bars on any screen: a name (`F1`–`F24`, `A`–`Z`, `0`–`9`, `End`, `Home`, `Insert`, `Delete`, `PageUp`, `PageDown`, arrow keys, …) or a virtual-key code such as `0x23`. |
-| `zoom_start` | `cut` narrows the field of view from the first camera cut after the letterbox appears. `letterbox` narrows it whenever the letterbox is enabled. The zoom eases out as the bars slide out. |
+| `zoom_start` | `cut` narrows the field of view from the first camera cut after the letterbox appears. `letterbox` narrows it whenever the letterbox is enabled. The zoom eases out as the bars slide out. A letterbox with side bars only, which the game uses to box menus to 16:9, is never zoomed. |
 | `aspect`     | Screen aspect ratio. `0` measures the game window's client area once a second.                                                                                           |
 | `log`        | `1` writes `CutsceneFit.log` next to the `.asi`, `0` writes nothing.                                                                                                      |
 

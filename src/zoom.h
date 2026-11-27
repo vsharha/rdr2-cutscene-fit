@@ -9,9 +9,10 @@
 namespace zoom {
 
 enum class Start {
-    // Active from the first camera cut after the letterbox appears until it goes.
+    // Active from the first camera cut after a letterbox with top and bottom bars
+    // appears until it goes.
     Cut,
-    // Active whenever the letterbox is enabled.
+    // Active whenever a letterbox with top and bottom bars is enabled.
     Letterbox,
 };
 

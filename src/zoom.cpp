@@ -42,6 +42,7 @@ using Fn = char (*)(std::int64_t*, std::uint8_t*, std::int64_t*, std::uint8_t*);
 
 Fn g_original = nullptr;
 std::uintptr_t g_enable = 0;
+std::uintptr_t g_top_bottom_on = 0;
 std::uintptr_t g_weight = 0;
 Start g_start = Start::Cut;
 std::atomic<bool> g_active{false};
@@ -82,7 +83,10 @@ char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
         return g_original(p1, frame, p3, owner);
     }
 
-    const bool letterbox = load<std::uint8_t>(g_enable) != 0;
+    // A letterbox without top and bottom bars is a 16:9 box around a menu, which the
+    // game does not crop, so it is not zoomed.
+    const bool letterbox =
+        load<std::uint8_t>(g_enable) != 0 && load<std::uint8_t>(g_top_bottom_on) != 0;
     const float weight = load<float>(g_weight);
     const bool cut =
         (load<std::uint16_t>(reinterpret_cast<std::uintptr_t>(frame) + kFlagsOffset) & kCutFlag) != 0;
@@ -154,6 +158,7 @@ char detour(std::int64_t* p1, std::uint8_t* frame, std::int64_t* p3, std::uint8_
 
 bool create(const game::Addresses& addresses, Start start) {
     g_enable = addresses.anchor + letterbox::kDrawnEnable;
+    g_top_bottom_on = addresses.anchor + letterbox::kDrawnTopBottomOn;
     g_weight = addresses.anchor + letterbox::kWeight;
     g_start = start;
     const MH_STATUS status = MH_CreateHook(reinterpret_cast<LPVOID>(addresses.zoom),

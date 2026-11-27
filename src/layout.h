@@ -26,7 +26,9 @@ constexpr std::ptrdiff_t kDrawnEnable = 0x21;    // u8
 constexpr std::ptrdiff_t kDrawnTopBottom = 0x24; // float, height of each top and bottom bar
 constexpr std::ptrdiff_t kDrawnSideWidth = 0x28; // float, width of each side bar
 constexpr std::ptrdiff_t kDrawnSideOn = 0x2C;    // u8
-constexpr std::ptrdiff_t kDrawnTopBottomOn = 0x2D;  // u8
+// u8. Set in cutscenes and the cinematic camera. Clear when the game uses the letterbox
+// to box a menu to 16:9 with side bars only, such as the general store's outfit menu.
+constexpr std::ptrdiff_t kDrawnTopBottomOn = 0x2D;
 
 }  // namespace letterbox
 

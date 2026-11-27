@@ -53,6 +53,14 @@ bool write_byte(std::uintptr_t address, std::uint8_t value) {
     return true;
 }
 
+// Whether the letterbox is a cutscene's, with top and bottom bars. A letterbox without
+// them is a 16:9 box around a menu, whose side bars are left at the game's size. The
+// drawn byte is the game's value from the latest drawing; the plugin never writes it.
+bool cutscene_letterbox(std::ptrdiff_t enable) {
+    return load<std::uint8_t>(g_anchor + enable) != 0 &&
+           load<std::uint8_t>(g_anchor + letterbox::kDrawnTopBottomOn) != 0;
+}
+
 // Puts the alpha the game would have stored into both copies, without waiting for the
 // game to execute the storing instruction again.
 // The computed copy goes first: if the game copies it to the drawn copy between the two
@@ -74,7 +82,7 @@ void update_detour() {
 
     // The game's box aspect snaps to preset ratios, so its calculated height is wrong
     // on some ultrawide screens. Write the screen-based height into the computed copy.
-    if (state::applicable() && load<std::uint8_t>(g_anchor + letterbox::kEnable) != 0) {
+    if (state::applicable() && cutscene_letterbox(letterbox::kEnable)) {
         const float weight = load<float>(g_anchor + letterbox::kWeight);
         if (weight > 0.0f) {
             const float height = std::max(state::top_bottom_fraction(), kMinTopBottom) * weight;
@@ -105,7 +113,7 @@ void draw_detour() {
     if (g_hidden.load(std::memory_order_relaxed)) {
         store<std::uint8_t>(g_anchor + letterbox::kDrawnAlpha, kHiddenAlpha);
     }
-    if (state::applicable() && load<std::uint8_t>(g_anchor + letterbox::kDrawnEnable) != 0) {
+    if (state::applicable() && cutscene_letterbox(letterbox::kDrawnEnable)) {
         const float weight = load<float>(g_anchor + letterbox::kWeight);
         const float width = weight > 0.0f ? state::side_fraction() * weight : 0.0f;
         store(g_anchor + letterbox::kDrawnSideWidth, width);
