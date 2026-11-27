@@ -5,11 +5,16 @@ screen as it can, and fills what is left with the game's own bars.
 
 Tested on `RDR2.exe` 1.0.1491.50 at 3440x1440, 3440x1200 and 2880x1440.
 
-## Changes in 1.0.2
+## Changes in 1.0.3
 
-- The End key and `bars=0` hide the game's bars on any screen, including 16:9
-  and narrower. The zoom and the bar sizes still change only on screens wider
-  than 16:9.
+- Menus that the game boxes to 16:9, such as the general store's outfit
+  preview, are no longer zoomed, and keep the game's own side bars. The zoom
+  had cut off Arthur's head and feet there.
+- The game's videos keep the game's own side bars instead of the plugin's
+  narrow ones, which had shown streaks beside the video.
+- A cutscene that follows a video is now zoomed from the moment the video
+  ends. Before, the zoom waited for a camera cut, and some of those cutscenes
+  have none.
 
 ## Requirements
 

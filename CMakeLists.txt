@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(CutsceneFit VERSION 1.0.2 LANGUAGES C CXX)
+project(CutsceneFit VERSION 1.0.3 LANGUAGES C CXX)
 
 option(CUTSCENEFIT_COMPARE "Build screenshot comparison controls into CutsceneFit" OFF)
 option(CUTSCENEFIT_RELOAD "Build CutsceneFit as a DLL that tools/reload reloads while the game runs" OFF)
