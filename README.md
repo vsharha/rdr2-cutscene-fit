@@ -20,8 +20,10 @@ with the narrower field of view, so nothing is upscaled.
 
 The same applies to the in-game cinematic camera, which uses the same bars.
 Menus that the game boxes to 16:9 with side bars only, such as the general
-store's outfit preview, are left as the game draws them, and so are the
-game's videos, which are 16:9 pictures with the game's own bars at the sides.
+store's outfit preview, are never zoomed. By default they get the same side
+bars as cutscenes; `menu_frame` can keep the game's own there or remove them. The
+game's videos, which are 16:9 pictures with the game's own bars at the sides,
+are left as the game draws them.
 When a video gives way to a cutscene, the zoom starts as the video ends.
 
 It works at any aspect ratio. The plugin computes the frame and the bars from
@@ -108,6 +110,7 @@ enabled=1
 bars=1
 toggle_key=End
 zoom_start=cut
+menu_frame=cinematic
 aspect=0
 log=1
 ```
@@ -118,6 +121,7 @@ log=1
 | `bars`       | `1` shows the bars when the game starts, `0` hides them, on any screen.                                                                                                           |
 | `toggle_key` | Key that shows or hides the bars on any screen: a name (`F1`–`F24`, `A`–`Z`, `0`–`9`, `End`, `Home`, `Insert`, `Delete`, `PageUp`, `PageDown`, arrow keys, …) or a virtual-key code such as `0x23`. |
 | `zoom_start` | `cut` narrows the field of view from the first camera cut after the letterbox appears. `letterbox` narrows it whenever the letterbox is enabled. The zoom eases out as the bars slide out. A letterbox with side bars only, which the game uses to box menus to 16:9, is never zoomed. |
+| `menu_frame` | Side bars in menus that the game boxes to 16:9, such as shops. `cinematic` gives them the same side bars as cutscenes, framing 2.35:1. `original` keeps the game's own, framing 16:9. `off` removes them. Menus are never zoomed. |
 | `aspect`     | Screen aspect ratio. `0` measures the game window's client area once a second.                                                                                           |
 | `log`        | `1` writes `CutsceneFit.log` next to the `.asi`, `0` writes nothing.                                                                                                      |
 

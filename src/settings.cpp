@@ -77,6 +77,21 @@ Settings read(const std::wstring& path) {
         s.warnings.push_back(std::format("zoom_start \"{}\" is not cut or letterbox; using cut", start_name));
     }
 
+    std::string frame_name = narrow(read_string(L"menu_frame", L"cinematic", path));
+    for (char& c : frame_name) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    if (frame_name == "cinematic") {
+        s.menu_frame = bars::MenuFrame::Cinematic;
+    } else if (frame_name == "original") {
+        s.menu_frame = bars::MenuFrame::Original;
+    } else if (frame_name == "off") {
+        s.menu_frame = bars::MenuFrame::Off;
+    } else {
+        s.warnings.push_back(
+            std::format("menu_frame \"{}\" is not cinematic, original or off; using cinematic", frame_name));
+    }
+
     const std::wstring aspect = read_string(L"aspect", L"0", path);
     wchar_t* end = nullptr;
     const double value = std::wcstod(aspect.c_str(), &end);

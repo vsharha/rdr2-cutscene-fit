@@ -20,6 +20,9 @@
 //                only boxes a menu to 16:9 and is left to the game.
 //                Either way the zoom eases out as the bars slide out, or ends at once
 //                if a camera cut came with them. Default: cut.
+//   menu_frame   side bars in menus the game boxes to 16:9, such as shops. cinematic:
+//                the cutscene's, framing 2.35:1. original: the game's own, framing 16:9.
+//                off: none. Menus are never zoomed. Default: cinematic.
 //   aspect       screen aspect ratio. 0 measures the game window's client area once a
 //                second. Default: 0.
 //   log          1 writes CutsceneFit.log next to the .asi, 0 writes nothing. Default: 1.
@@ -234,7 +237,7 @@ bool install(const mem::Region& module, const settings::Settings& s) {
         return false;
     }
     g_hooks_created.store(true);
-    if (!zoom::create(addresses, s.zoom_start) || !bars::create(addresses)) {
+    if (!zoom::create(addresses, s.zoom_start) || !bars::create(addresses, s.menu_frame)) {
         shutdown();
         logger::info("not installing any hook");
         return false;
@@ -282,8 +285,9 @@ DWORD WINAPI run(LPVOID parameter) {
         if (version != game::kExpectedVersion) {
             logger::info("WARNING: offsets and patterns are for {}", game::kExpectedVersion);
         }
-        logger::info("settings: enabled={} bars={} toggle_key=0x{:X} zoom_start={} aspect={} log={}",
-                     s.enabled, s.bars, s.toggle_key, zoom::name(s.zoom_start), s.aspect, s.log);
+        logger::info("settings: enabled={} bars={} toggle_key=0x{:X} zoom_start={} menu_frame={} aspect={} log={}",
+                     s.enabled, s.bars, s.toggle_key, zoom::name(s.zoom_start), bars::name(s.menu_frame), s.aspect,
+                     s.log);
         if (!s.enabled) {
             logger::info("disabled in the ini; doing nothing");
             return 0;

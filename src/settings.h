@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "bars.h"
 #include "zoom.h"
 
 namespace settings {
@@ -14,6 +15,7 @@ struct Settings {
     bool bars = true;
     int toggle_key = 0;
     zoom::Start zoom_start = zoom::Start::Cut;
+    bars::MenuFrame menu_frame = bars::MenuFrame::Cinematic;
     double aspect = 0.0;
     bool log = true;
 #ifdef CUTSCENEFIT_COMPARE

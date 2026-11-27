@@ -33,6 +33,7 @@ VoidFn g_draw_original = nullptr;
 std::uintptr_t g_anchor = 0;
 std::uintptr_t g_immediate = 0;
 std::atomic<bool> g_hidden{false};
+MenuFrame g_menu_frame = MenuFrame::Cinematic;
 
 std::atomic<std::uint32_t> g_letterbox_frames{0};
 std::atomic<std::uint32_t> g_flagged_frames{0};
@@ -54,13 +55,17 @@ bool write_byte(std::uintptr_t address, std::uint8_t value) {
     return true;
 }
 
-// Whether the letterbox is a cutscene's, with top and bottom bars and no video playing.
-// A letterbox without top and bottom bars is a 16:9 box around a menu, and a video is a
-// 16:9 picture; in both the game's own side bars cover what lies outside the 16:9 box.
-// The drawn byte is the game's value from the latest drawing; the plugin never writes it.
-bool cutscene_letterbox(std::ptrdiff_t enable) {
-    return load<std::uint8_t>(g_anchor + enable) != 0 &&
-           load<std::uint8_t>(g_anchor + letterbox::kDrawnTopBottomOn) != 0 && !video::playing();
+// Whether the letterbox is enabled with no video playing, and whether it has top and
+// bottom bars. With them it is a cutscene's; without, a 16:9 box around a menu. A video
+// is a 16:9 picture, whose sides the game's own side bars cover, so the letterbox is
+// left to the game while one plays. The drawn byte is the game's value from the latest
+// drawing; the plugin never writes it.
+bool letterbox_enabled(std::ptrdiff_t enable) {
+    return load<std::uint8_t>(g_anchor + enable) != 0 && !video::playing();
+}
+
+bool top_bottom_on() {
+    return load<std::uint8_t>(g_anchor + letterbox::kDrawnTopBottomOn) != 0;
 }
 
 // Puts the alpha the game would have stored into both copies, without waiting for the
@@ -84,7 +89,7 @@ void update_detour() {
 
     // The game's box aspect snaps to preset ratios, so its calculated height is wrong
     // on some ultrawide screens. Write the screen-based height into the computed copy.
-    if (state::applicable() && cutscene_letterbox(letterbox::kEnable)) {
+    if (state::applicable() && letterbox_enabled(letterbox::kEnable) && top_bottom_on()) {
         const float weight = load<float>(g_anchor + letterbox::kWeight);
         if (weight > 0.0f) {
             const float height = std::max(state::top_bottom_fraction(), kMinTopBottom) * weight;
@@ -102,7 +107,8 @@ void update_detour() {
 
 // Side bars have no input in the game's computation, so their width is written into
 // the drawn copy, which the game has just filled and nothing else touches before the
-// drawing reads it. Below 2.35:1 this removes the game's own side bars.
+// drawing reads it. Below 2.35:1 this removes the game's own side bars. A menu's 16:9
+// box gets the same width, none, or the game's own, as the menu frame says.
 //
 // While the bars are hidden the drawn alpha is also zeroed here, so the drawing never
 // reads an opaque bar, including on a frame where the update did not run (paused, or
@@ -115,9 +121,12 @@ void draw_detour() {
     if (g_hidden.load(std::memory_order_relaxed)) {
         store<std::uint8_t>(g_anchor + letterbox::kDrawnAlpha, kHiddenAlpha);
     }
-    if (state::applicable() && cutscene_letterbox(letterbox::kDrawnEnable)) {
+    const bool cutscene = top_bottom_on();
+    if (state::applicable() && letterbox_enabled(letterbox::kDrawnEnable) &&
+        (cutscene || g_menu_frame != MenuFrame::Original)) {
         const float weight = load<float>(g_anchor + letterbox::kWeight);
-        const float width = weight > 0.0f ? state::side_fraction() * weight : 0.0f;
+        const float fraction = cutscene || g_menu_frame == MenuFrame::Cinematic ? state::side_fraction() : 0.0f;
+        const float width = weight > 0.0f ? fraction * weight : 0.0f;
         store(g_anchor + letterbox::kDrawnSideWidth, width);
         if (width > 0.0f) {
             store<std::uint8_t>(g_anchor + letterbox::kDrawnSideOn, 1);
@@ -138,8 +147,21 @@ bool create_hook(const char* name, std::uintptr_t target, void* detour, VoidFn& 
 
 }  // namespace
 
-bool create(const game::Addresses& addresses) {
+const char* name(MenuFrame frame) {
+    switch (frame) {
+        case MenuFrame::Cinematic:
+            return "cinematic";
+        case MenuFrame::Original:
+            return "original";
+        case MenuFrame::Off:
+            return "off";
+    }
+    return "?";
+}
+
+bool create(const game::Addresses& addresses, MenuFrame menu_frame) {
     g_anchor = addresses.anchor;
+    g_menu_frame = menu_frame;
     g_immediate = addresses.alpha_store + kImmediateOffset;
     return create_hook("letterbox update", addresses.update, reinterpret_cast<void*>(&update_detour),
                        g_update_original) &&
